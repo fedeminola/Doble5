@@ -1,0 +1,399 @@
+{% extends "core/base.html" %}
+{% load core_extras %}
+
+{% block title %}Grilla de Turnos - Doble5{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .table-responsive {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        .table thead th {
+            background-color: #f1f3f5;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            text-align: center;
+            min-width: 100px;
+        }
+        .table thead th.cancha-col {
+            min-width: 150px;
+        }
+        .table td {
+            vertical-align: middle;
+            text-align: center;
+            height: 60px;
+            padding: 4px;
+        }
+        .slot-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        .libre {
+            background-color: #e9f7ef;
+            color: #198754;
+            border: 1px dashed #a3cfbb;
+        }
+        .libre:hover {
+            background-color: #d1e7dd;
+            border-style: solid;
+        }
+        .ocupado {
+            background-color: #fdf2f2;
+            color: #dc3545;
+            border: 1px solid #f5c2c7;
+            font-weight: 600;
+        }
+        .ocupado:hover {
+            background-color: #f8d7da;
+        }
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            background-color: #f1f3f5 !important;
+            z-index: 10;
+            font-weight: 600;
+            border-right: 2px solid #dee2e6 !important;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid px-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <input type="hidden" name="view" value="{{ view_mode }}">
+                    <div class="col-md-3">
+                        <label for="date" class="form-label fw-bold small text-uppercase">Fecha</label>
+                        <input type="date" name="date" class="form-control" value="{{ selected_date_str }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="sede" class="form-label fw-bold small text-uppercase">Sede</label>
+                        <select name="sede" class="form-select" onchange="this.form.submit()">
+                            {% for sede in sedes %}
+                                <option value="{{ sede.id }}" {% if sede.id == selected_sede.id %}selected{% endif %}>
+                                    {{ sede.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-uppercase">Vista</label>
+                        <div class="btn-group w-100" role="group">
+                            <a href="?date={{ selected_date_str }}&sede={{ selected_sede.id }}&view=day" class="btn {% if view_mode == 'day' %}btn-primary{% else %}btn-outline-primary{% endif %}">Día</a>
+                            <a href="?date={{ selected_date_str }}&sede={{ selected_sede.id }}&view=week" class="btn {% if view_mode == 'week' %}btn-primary{% else %}btn-outline-primary{% endif %}">Semana</a>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-secondary w-100">Actualizar</button>
+                    </div>
+                </form>
+                <div class="mt-3">
+                    <a href="{% url 'abrir_caja' %}?sede={{ selected_sede.id }}&tipo=CANCHA&next={{ request.get_full_path|urlencode }}" class="btn btn-success">Abrir Caja Cancha</a>
+                    <a href="{% url 'cerrar_caja' %}?sede={{ selected_sede.id }}&tipo=CANCHA&next={{ request.get_full_path|urlencode }}" class="btn btn-danger">Cerrar Caja Cancha</a>
+                </div>
+            </div>
+        </div>
+
+        {% if selected_sede %}
+            {% if view_mode == 'day' %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">{{ selected_date|date:"l d \d\e F"|capfirst }}</h4>
+                    <div>
+                        <a href="?date={{ prev_day }}&sede={{ selected_sede.id }}&view=day" class="btn btn-sm btn-outline-secondary">&laquo; Anterior</a>
+                        <a href="?date={{ next_day }}&sede={{ selected_sede.id }}&view=day" class="btn btn-sm btn-outline-secondary">Siguiente &raquo;</a>
+                    </div>
+                </div>
+                <div class="table-responsive shadow-sm">
+                    <table class="table table-bordered table-sm m-0">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col cancha-col">Cancha</th>
+                                {% for time in time_slots %}
+                                    <th>{{ time|time:"H:i" }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cancha in canchas %}
+                                <tr>
+                                    <td class="sticky-col">{{ cancha.nombre }}</td>
+                                    {% for time in time_slots %}
+                                        {% with turno=turnos_grid|get_item:cancha.id|get_item:time.hour %}
+                                            <td>
+                                                {% if turno %}
+                                                    <a href="#" class="slot-link ocupado edit-turno-btn"
+                                                       data-id="{{ turno.id }}"
+                                                       data-cancha-id="{{ cancha.id }}"
+                                                       data-cancha-nombre="{{ cancha.nombre }}"
+                                                       data-hora="{{ time.hour }}"
+                                                       data-telefono="{{ turno.cliente.telefono|default:'' }}"
+                                                       data-nombre="{{ turno.cliente.nombre }}"
+                                                       data-precio="{{ turno.precio_total|human_decimal }}"
+                                                       data-efectivo="{{ turno.monto_efectivo|human_decimal }}"
+                                                       data-transferencia="{{ turno.monto_transferencia|human_decimal }}">
+                                                        {{ turno.cliente.nombre|truncatechars:12 }}
+                                                    </a>
+                                                {% else %}
+                                                    <a href="#" class="slot-link libre add-turno-btn"
+                                                       data-cancha-id="{{ cancha.id }}"
+                                                       data-cancha-nombre="{{ cancha.nombre }}"
+                                                       data-hora="{{ time.hour }}">
+                                                        Libre
+                                                    </a>
+                                                {% endif %}
+                                            </td>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <!-- VISTA SEMANAL -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Semana del {{ days_range.0|date:"d/m" }} al {{ days_range.6|date:"d/m" }}</h4>
+                    <div>
+                        <a href="?date={{ prev_week }}&sede={{ selected_sede.id }}&view=week" class="btn btn-sm btn-outline-secondary">&laquo; Anterior</a>
+                        <a href="?date={{ next_week }}&sede={{ selected_sede.id }}&view=week" class="btn btn-sm btn-outline-secondary">Siguiente &raquo;</a>
+                    </div>
+                </div>
+                {% for cancha in canchas %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white fw-bold">
+                            {{ cancha.nombre }}
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm m-0">
+                                <thead>
+                                    <tr>
+                                        <th class="sticky-col" style="min-width: 80px;">Hora</th>
+                                        {% for day in days_range %}
+                                            <th class="{% if day == today %}table-primary{% endif %}">
+                                                {{ day|date:"D d/m" }}
+                                            </th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for time in time_slots %}
+                                        <tr>
+                                            <td class="sticky-col">{{ time|time:"H:i" }}</td>
+                                            {% for day in days_range %}
+                                                {% with turno=turnos_grid|get_item:cancha.id|get_item:day|get_item:time.hour %}
+                                                    <td>
+                                                        {% if turno %}
+                                                            <a href="#" class="slot-link ocupado edit-turno-btn"
+                                                               data-id="{{ turno.id }}"
+                                                               data-cancha-id="{{ cancha.id }}"
+                                                               data-cancha-nombre="{{ cancha.nombre }}"
+                                                               data-hora="{{ time.hour }}"
+                                                               data-telefono="{{ turno.cliente.telefono|default:'' }}"
+                                                               data-nombre="{{ turno.cliente.nombre }}"
+                                                               data-precio="{{ turno.precio_total|human_decimal }}"
+                                                               data-efectivo="{{ turno.monto_efectivo|human_decimal }}"
+                                                               data-transferencia="{{ turno.monto_transferencia|human_decimal }}">
+                                                                {{ turno.cliente.nombre|truncatechars:10 }}
+                                                            </a>
+                                                        {% else %}
+                                                            <a href="#" class="slot-link libre add-turno-btn"
+                                                               data-cancha-id="{{ cancha.id }}"
+                                                               data-cancha-nombre="{{ cancha.nombre }}"
+                                                               data-hora="{{ time.hour }}"
+                                                               data-date="{{ day|date:'Y-m-d' }}">
+                                                                +
+                                                            </a>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endwith %}
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info">Por favor, selecciona una sede para visualizar la grilla.</div>
+        {% endif %}
+    </div>
+
+    <!-- Modal Nuevo Turno -->
+    <div class="modal fade" id="modalTurno" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTitle">Nuevo Turno</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" id="turnoForm">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <input type="hidden" name="nuevo_turno" id="form_action_new" value="1">
+                        <input type="hidden" name="editar_turno" id="form_action_edit" value="1" disabled>
+                        <input type="hidden" id="turno_id" name="turno_id">
+                        <input type="hidden" id="cancha_id" name="cancha_id">
+                        <input type="hidden" id="hora" name="hora">
+                        <input type="hidden" id="modal_date" name="date">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Teléfono Cliente</label>
+                            <input type="text" name="telefono" id="modal_telefono" class="form-control" placeholder="Ej: 1122334455">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre Cliente (nuevo)</label>
+                            <input type="text" name="nombre_cliente" id="modal_nombre" class="form-control" placeholder="Nombre completo" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold">Precio Turno (Configurado)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" id="modal_precio_display" class="form-control bg-light" value="{{ precio_sugerido|human_decimal }}" readonly>
+                                    <input type="hidden" name="precio_total" id="modal_precio" value="{{ precio_sugerido }}">
+                                </div>
+                                <small class="text-muted">El precio se toma de la configuración general.</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small text-success">Pago Efectivo</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" name="monto_efectivo" id="modal_efectivo" class="form-control" value="0" {% if not caja_abierta %}disabled{% endif %}>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small text-primary">Pago Transferencia</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" name="monto_transferencia" id="modal_transferencia" class="form-control" value="0" {% if not caja_abierta %}disabled{% endif %}>
+                                </div>
+                            </div>
+                            {% if not caja_abierta %}
+                            <div class="col-12">
+                                <div class="alert alert-warning py-2 small">
+                                    <strong>Atención:</strong> La caja de 'Cancha' para esta fecha está cerrada. No se pueden registrar pagos.
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+                <div class="modal-footer bg-light d-flex justify-content-between">
+                    <div>
+                        <form id="deleteForm" method="post" action="">
+                            {% csrf_token %}
+                        </form>
+                        <button type="button" id="deleteBtn" class="btn btn-danger" style="display: none;" onclick="confirmDelete()">Borrar Turno</button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" form="turnoForm">Guardar Turno</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        const turnoModal = new bootstrap.Modal(document.getElementById('modalTurno'));
+
+        function unformatNumber(str) {
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        document.querySelectorAll('.add-turno-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const d = btn.dataset;
+                prepareModal(d.canchaId, d.canchaNombre, d.hora, d.date);
+            });
+        });
+
+        document.querySelectorAll('.edit-turno-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const d = btn.dataset;
+                editModal(d.id, d.canchaId, d.canchaNombre, d.hora, d.telefono, d.nombre, d.precio, d.efectivo, d.transferencia);
+            });
+        });
+
+        function prepareModal(canchaId, canchaNombre, hora, dateStr = null) {
+            resetModal();
+            document.getElementById('turnoForm').action = '';
+            document.getElementById('cancha_id').value = canchaId;
+            document.getElementById('hora').value = hora;
+            const selectedDate = dateStr || '{{ selected_date_str }}';
+            document.getElementById('modal_date').value = selectedDate;
+
+            if(dateStr) {
+                document.getElementById('modalTitle').innerText = `Nuevo Turno: ${canchaNombre} - ${dateStr} ${hora}:00 hs`;
+            } else {
+                document.getElementById('modalTitle').innerText = `Nuevo Turno: ${canchaNombre} - ${hora}:00 hs`;
+            }
+            document.getElementById('form_action_new').disabled = false;
+            document.getElementById('form_action_edit').disabled = true;
+            turnoModal.show();
+        }
+
+        function editModal(turnoId, canchaId, canchaNombre, hora, telefono, nombre, precio, efectivo, transferencia) {
+            resetModal();
+            document.getElementById('turnoForm').action = '';
+            document.getElementById('modalTitle').innerText = `Editar Turno: ${canchaNombre} - ${hora}:00 hs`;
+            document.getElementById('turno_id').value = turnoId;
+            document.getElementById('cancha_id').value = canchaId;
+            document.getElementById('hora').value = hora;
+            document.getElementById('modal_telefono').value = telefono;
+            document.getElementById('modal_nombre').value = nombre;
+
+            document.getElementById('modal_precio_display').value = precio;
+            document.getElementById('modal_precio').value = unformatNumber(precio);
+            document.getElementById('modal_efectivo').value = unformatNumber(efectivo);
+            document.getElementById('modal_transferencia').value = unformatNumber(transferencia);
+
+            document.getElementById('form_action_new').disabled = true;
+            document.getElementById('form_action_edit').disabled = false;
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            const deleteForm = document.getElementById('deleteForm');
+            deleteBtn.style.display = 'block';
+            deleteForm.action = `/turno-delete/${turnoId}/`;
+
+            turnoModal.show();
+        }
+
+        function confirmDelete() {
+            if (confirm('¿Está seguro de que desea borrar este turno? Si tiene pagos registrados, se notificará a los administradores.')) {
+                document.getElementById('deleteForm').submit();
+            }
+        }
+
+        function resetModal() {
+            document.getElementById('turnoForm').reset();
+            document.getElementById('form_action_new').disabled = true;
+            document.getElementById('form_action_edit').disabled = true;
+            document.getElementById('deleteBtn').style.display = 'none';
+            document.getElementById('deleteForm').action = '';
+            document.getElementById('modal_precio_display').value = '{{ precio_sugerido|human_decimal }}';
+            document.getElementById('modal_precio').value = '{{ precio_sugerido }}';
+        }
+    </script>
+{% endblock %}

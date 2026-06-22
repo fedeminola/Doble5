@@ -1,0 +1,257 @@
+{% extends "core/base.html" %}
+{% load static core_extras %}
+
+{% block content %}
+<div class="container mt-2">
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h3 class="card-title mb-0">Registrar Compra a Proveedor</h3>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-end gap-2 mb-3">
+                <a href="{% url 'abrir_caja' %}?tipo=BUFET&sede={{ sede.id }}&next={% url 'registrar_compra' %}" class="btn btn-success">Abrir Caja Buffet</a>
+                <a href="{% url 'cerrar_caja' %}?tipo=BUFET&sede={{ sede.id }}&next={% url 'registrar_compra' %}" class="btn btn-danger">Cerrar Caja Buffet</a>
+            </div>
+            <hr>
+            {% if not caja_abierta %}
+                <div class="alert alert-warning" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    No hay una caja de buffet abierta para la sede <strong>{{ sede.nombre }}</strong>. Por favor, abra una caja para poder registrar compras.
+                </div>
+            {% else %}
+                <div class="alert alert-info py-2">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Compras para la caja de <strong>{{ caja_abierta.sede.nombre }}</strong> del día <strong>{{ caja_abierta.fecha }}</strong>.
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Proveedor</label>
+                            {{ form.proveedor }}
+                            {{ form.proveedor.errors }}
+                        </div>
+                    </div>
+                    {{ form.usuario }}
+
+                    <hr>
+                    <h5 class="mb-3">Artículos de la Compra</h5>
+                    <div id="item-formset">
+                        {{ formset.management_form }}
+                        {% for item_form in formset.forms %}
+                            <div class="item-form row g-2 mb-3 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label small">Artículo</label>
+                                    {{ item_form.articulo }}
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Cantidad</label>
+                                    {{ item_form.cantidad }}
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Costo Unit.</label>
+                                    {{ item_form.precio_costo_momento }}
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Subtotal</label>
+                                    <input type="text" class="form-control subtotal-display" readonly tabindex="-1">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-outline-danger remove-form w-100" title="Quitar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                                {% if item_form.id %}
+                                    {{ item_form.id }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <button type="button" id="add-form" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-plus-circle"></i> Añadir Artículo
+                        </button>
+                    </div>
+
+                    <div class="row justify-content-end mt-3">
+                        <div class="col-md-4">
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small text-muted">Subtotal Artículos</label>
+                                <input type="text" id="subtotal-articulos" class="form-control form-control-sm bg-light" readonly>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small text-success">Gastos Varios (+)</label>
+                                {{ form.gastos_varios }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-danger">Bonificaciones (-)</label>
+                                {{ form.bonificaciones }}
+                            </div>
+                            <div class="text-end border-top pt-2">
+                                <h4 class="mb-0">Total Compra: <span id="total-compra" class="fw-bold text-primary">0,00</span></h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 border-top pt-3">
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm">
+                            <i class="bi bi-cart-check"></i> Registrar Compra
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Estilos extra para TomSelect y Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let formsetContainer = document.getElementById('item-formset');
+    let addFormButton = document.getElementById('add-form');
+    let totalForms = document.querySelector('#id_itemcompra_set-TOTAL_FORMS');
+    let formsetPrefix = 'itemcompra_set';
+
+    function formatNumber(num) {
+        return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function initializeTomSelect(element) {
+        if (element.tomselect) return;
+        new TomSelect(element, {
+            valueField: 'id',
+            labelField: 'text',
+            searchField: 'text',
+            placeholder: 'Buscar artículo...',
+            openOnFocus: false,
+            loadThrottle: 300,
+            load: function(query, callback) {
+                if (!query.length) return callback();
+                var url = `{% url 'buscar_articulos' %}?q=${encodeURIComponent(query)}&context=compra`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(json => {
+                        callback(json.results);
+                    }).catch(error => {
+                        console.error('Error buscando artículos:', error);
+                        callback();
+                    });
+            }
+        });
+    }
+
+    function updateCalculations() {
+        let subtotalArticulos = 0;
+        document.querySelectorAll('.item-form').forEach(formRow => {
+            let cantidadInput = formRow.querySelector('input[name$="-cantidad"]');
+            let costoInput = formRow.querySelector('input[name$="-precio_costo_momento"]');
+            let cantidad = parseFloat(cantidadInput ? cantidadInput.value : 0) || 0;
+            let costo = parseFloat(costoInput ? costoInput.value : 0) || 0;
+            let subtotal = cantidad * costo;
+            formRow.querySelector('.subtotal-display').value = formatNumber(subtotal);
+            subtotalArticulos += subtotal;
+        });
+
+        let gastosVarios = parseFloat(document.getElementById('id_gastos_varios').value) || 0;
+        let bonificaciones = parseFloat(document.getElementById('id_bonificaciones').value) || 0;
+
+        let totalCompra = subtotalArticulos + gastosVarios - bonificaciones;
+
+        document.getElementById('subtotal-articulos').value = formatNumber(subtotalArticulos);
+        document.getElementById('total-compra').textContent = formatNumber(totalCompra);
+    }
+
+    document.body.addEventListener('input', function(e) {
+        if (e.target.name && (e.target.name.endsWith('-cantidad') || e.target.name.endsWith('-precio_costo_momento') || e.target.id === 'id_gastos_varios' || e.target.id === 'id_bonificaciones')) {
+            updateCalculations();
+        }
+    });
+
+    addFormButton.addEventListener('click', function() {
+        let formIndex = parseInt(totalForms.value);
+        let template = document.querySelector('.item-form').cloneNode(true);
+        if (!template) {
+            alert("Error: No se encontró un formulario para clonar.");
+             return;
+         }
+
+        template.querySelectorAll('input:not([type="hidden"])').forEach(input => {
+            if (input.name && input.name.endsWith('-cantidad')) {
+                input.value = '1';
+            } else {
+                input.value = '';
+            }
+        });
+        template.querySelector('.subtotal-display').value = '0,00';
+
+        const templateSelect = template.querySelector('select[name$="-articulo"]');
+        const templateTomSelectWrapper = template.querySelector('.ts-wrapper');
+
+        if (templateTomSelectWrapper) {
+            templateTomSelectWrapper.remove();
+        }
+        if (templateSelect) {
+            templateSelect.innerHTML = '';
+            templateSelect.classList.remove('tomselected', 'ts-hidden-accessible');
+            templateSelect.removeAttribute('tabindex');
+        }
+
+        const prefixRegex = new RegExp(`${formsetPrefix}-\\d+-`, 'g');
+        const newPrefix = `${formsetPrefix}-${formIndex}-`;
+
+        template.querySelectorAll('[name^="' + formsetPrefix + '"], [id^="' + formsetPrefix + '"]').forEach(element => {
+            if (element.name) {
+                element.name = element.name.replace(prefixRegex, newPrefix);
+            }
+            if (element.id) {
+                element.id = element.id.replace(prefixRegex, newPrefix);
+            }
+        });
+        formsetContainer.appendChild(template);
+        
+        let newRow = formsetContainer.lastElementChild;
+        let newSelect = newRow.querySelector('select[name$="-articulo"]');
+
+        newSelect.disabled = false;
+        initializeTomSelect(newSelect);
+        if (newSelect.tomselect) newSelect.tomselect.focus();
+        
+        totalForms.value = formIndex + 1;
+        updateCalculations();
+    });
+
+    formsetContainer.addEventListener('click', function(e) {
+        let removeBtn = e.target.closest('.remove-form');
+        if (removeBtn) {
+            let rows = document.querySelectorAll('.item-form');
+            if (rows.length > 1) {
+                removeBtn.closest('.item-form').remove();
+                updateCalculations();
+            } else {
+                alert("Debe haber al menos un artículo.");
+            }
+        }
+    });
+
+    document.querySelectorAll('.item-form select[name$="-articulo"]').forEach(select => {
+        initializeTomSelect(select);
+    });
+    
+    const desiredForms = 4;
+    let existingForms = document.querySelectorAll('.item-form').length;
+    if (existingForms < desiredForms) {
+        for (let i = existingForms; i < desiredForms; i++) {
+            addFormButton.click();
+        }
+    }
+
+    updateCalculations();
+});
+</script>
+{% endblock %}

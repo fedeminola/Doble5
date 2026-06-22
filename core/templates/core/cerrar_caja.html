@@ -1,0 +1,43 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0">Cerrar Caja {% if tipo == 'BUFET' %}(Bufet){% endif %}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <p class="mb-1"><strong>Sede:</strong> {{ caja.sede.nombre }}</p>
+                        <p class="mb-1"><strong>Fecha:</strong> {{ caja.fecha }}</p>
+                        <p class="mb-1"><strong>Tipo:</strong> {{ caja.get_tipo_display }}</p>
+                        <hr>
+                        <p class="mb-1"><strong>Monto Inicial:</strong> ${{ caja.monto_inicial }}</p>
+                        <p class="mb-1"><strong>Monto Final Teórico:</strong> <span class="text-primary fw-bold">${{ monto_final_teorico }}</span></p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="tipo" value="{{ tipo }}">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <div class="mb-3">
+                            <label for="monto_final_real" class="form-label fw-bold">Monto Final Real (contado):</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="monto_final_real" class="form-control form-control-lg" step="0.01" autofocus required>
+                            </div>
+                            <div class="form-text">Ingrese el dinero total que hay físicamente en la caja.</div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">Cerrar Caja</button>
+                            <a href="{{ next_url }}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

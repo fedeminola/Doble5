@@ -1,0 +1,93 @@
+{% extends "core/base.html" %}
+{% load core_extras %}
+
+{% block title %}Reporte Diario - Doble5{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Reporte Diario</h3>
+            <form method="get" class="d-flex align-items-center gap-2">
+                <input type="date" name="date" class="form-control form-control-sm" value="{{ selected_date_str }}">
+                <select name="tipo_caja" class="form-select form-select-sm">
+                    {% for tipo_val, tipo_nom in tipos_caja %}
+                        <option value="{{ tipo_val }}" {% if tipo_val == tipo_caja %}selected{% endif %}>{{ tipo_nom }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Ver</button>
+            </form>
+        </div>
+        <div class="card-body">
+            {% if report_data %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Resumen: {{ report_data.caja.fecha }}</h4>
+                        <p class="text-muted">{{ report_data.caja.sede.nombre }} - Caja {{ report_data.caja.get_tipo_display }}</p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <div class="btn-group">
+                            <a href="{% url 'export_reporte_diario_csv' %}?date={{ selected_date_str }}&tipo_caja={{ tipo_caja }}" class="btn btn-outline-success">Exportar CSV</a>
+                            <a href="{% url 'export_reporte_diario_csv' %}?date={{ selected_date_str }}&tipo_caja={{ tipo_caja }}&format=xls" class="btn btn-outline-success">Exportar Excel</a>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row mt-4">
+                    {% if tipo_caja == 'CANCHA' %}
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded bg-light">
+                            <h6 class="text-uppercase small fw-bold">Cantidad Turnos</h6>
+                            <h3 class="text-info">{{ report_data.specific_data.turnos_count }}</h3>
+                        </div>
+                    </div>
+                    {% elif tipo_caja == 'BUFET' %}
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded bg-light">
+                            <h6 class="text-uppercase small fw-bold">Cantidad Ventas</h6>
+                            <h3 class="text-info">{{ report_data.specific_data.ventas_count }}</h3>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded bg-light">
+                            <h6 class="text-uppercase small fw-bold">Monto Inicial</h6>
+                            <h3 class="text-success">${{ report_data.caja.monto_inicial|human_decimal }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded bg-light">
+                            <h6 class="text-uppercase small fw-bold">Total Ingresos</h6>
+                            <h3 class="text-primary">${{ report_data.total_ingresos|human_decimal }}</h3>
+                            <div class="small text-muted">
+                                Ef: ${{ report_data.ingresos_efectivo|human_decimal }} | Tr: ${{ report_data.ingresos_banco|human_decimal }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded bg-light">
+                            <h6 class="text-uppercase small fw-bold">Total Egresos</h6>
+                            <h3 class="text-danger">${{ report_data.total_egresos|human_decimal }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 border rounded {% if report_data.caja.abierta %}bg-warning-subtle{% else %}bg-primary-subtle{% endif %}">
+                            <h6 class="text-uppercase small fw-bold">Balance Final</h6>
+                            <h3>${{ report_data.balance_final|human_decimal }}</h3>
+                            <div class="small">
+                                {% if report_data.caja.abierta %}
+                                    <span class="text-warning fw-bold">CAJA ABIERTA</span>
+                                {% else %}
+                                    <span class="text-primary fw-bold">CAJA CERRADA</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">No se encontró una caja de tipo <strong>{{ tipo_caja }}</strong> para la fecha seleccionada.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

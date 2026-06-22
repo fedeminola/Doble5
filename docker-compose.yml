@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=doble5_db
+      - POSTGRES_USER=doble5_user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doble5_user -d doble5_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  web:
+    build: .
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://doble5_user:password@db:5432/doble5_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

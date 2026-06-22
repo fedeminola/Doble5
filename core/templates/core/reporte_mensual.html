@@ -1,0 +1,74 @@
+{% extends "core/base.html" %}
+{% load core_extras %}
+
+{% block title %}Reporte Mensual - Doble5{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Reporte Mensual</h3>
+            <form method="get" class="d-flex align-items-center gap-2">
+                <select name="month" class="form-select form-select-sm">
+                    {% for month in months %}
+                        <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>Mes {{ month }}</option>
+                    {% endfor %}
+                </select>
+                <select name="year" class="form-select form-select-sm">
+                    {% for year in years %}
+                        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+                <select name="tipo_caja" class="form-select form-select-sm">
+                    {% for tipo_val, tipo_nom in tipos_caja %}
+                        <option value="{{ tipo_val }}" {% if tipo_val == tipo_caja %}selected{% endif %}>{{ tipo_nom }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Ver</button>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Resumen: {{ selected_month }}/{{ selected_year }} - Caja {{ tipo_caja }}</h4>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="btn-group">
+                        <a href="{% url 'export_reporte_mensual_csv' %}?month={{ selected_month }}&year={{ selected_year }}&tipo_caja={{ tipo_caja }}" class="btn btn-outline-success">Exportar CSV</a>
+                        <a href="{% url 'export_reporte_mensual_csv' %}?month={{ selected_month }}&year={{ selected_year }}&tipo_caja={{ tipo_caja }}&format=xls" class="btn btn-outline-success">Exportar Excel</a>
+                    </div>
+                </div>
+            </div>
+            <hr>
+            <div class="row mt-4">
+                {% if tipo_caja == 'CANCHA' %}
+                <div class="col-md-3 mb-3">
+                    <div class="p-4 border rounded bg-light text-center">
+                        <h6 class="text-uppercase small fw-bold">Cantidad Turnos</h6>
+                        <h2 class="text-info">{{ cantidad_turnos }}</h2>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="col-md-3 mb-3">
+                    <div class="p-4 border rounded bg-light text-center">
+                        <h6 class="text-uppercase small fw-bold">Total Ingresos</h6>
+                        <h2 class="text-primary">${{ total_ingresos|human_decimal }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="p-4 border rounded bg-light text-center">
+                        <h6 class="text-uppercase small fw-bold">Total Egresos</h6>
+                        <h2 class="text-danger">${{ total_egresos|human_decimal }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="p-4 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %} text-center">
+                        <h6 class="text-uppercase small fw-bold">Ganancia / Pérdida</h6>
+                        <h2 class="{% if ganancia >= 0 %}text-success{% else %}text-danger{% endif %}">${{ ganancia|human_decimal }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

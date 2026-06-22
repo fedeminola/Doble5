@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% load core_extras %}
+
+{% block title %}Reporte Semanal - Doble5{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Reporte Semanal</h3>
+            <form method="get" class="d-flex align-items-center gap-2">
+                <input type="date" name="date" class="form-control form-control-sm" value="{{ selected_date_str }}">
+                <select name="tipo_caja" class="form-select form-select-sm">
+                    {% for tipo_val, tipo_nom in tipos_caja %}
+                        <option value="{{ tipo_val }}" {% if tipo_val == tipo_caja %}selected{% endif %}>{{ tipo_nom }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Ver</button>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Resumen de la semana del {{ start_week|date:"d/m/Y" }} al {{ end_week|date:"d/m/Y" }}</h4>
+                    <p class="text-muted">Caja {{ tipo_caja }}</p>
+                </div>
+            </div>
+            <hr>
+            <div class="row mt-4">
+                <div class="col-md-4 mb-3">
+                    <div class="p-4 border rounded bg-light text-center">
+                        <h6 class="text-uppercase small fw-bold">Total Ingresos</h6>
+                        <h2 class="text-primary">${{ total_ingresos|human_decimal }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="p-4 border rounded bg-light text-center">
+                        <h6 class="text-uppercase small fw-bold">Total Egresos</h6>
+                        <h2 class="text-danger">${{ total_egresos|human_decimal }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="p-4 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %} text-center">
+                        <h6 class="text-uppercase small fw-bold">Ganancia / Pérdida</h6>
+                        <h2 class="{% if ganancia >= 0 %}text-success{% else %}text-danger{% endif %}">${{ ganancia|human_decimal }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
