@@ -7,8 +7,11 @@ services:
     volumes:
       - static_volume:/home/app/web/staticfiles
       - media_volume:/home/app/web/mediafiles
-    expose:
-      - 8000
+    # Use 'ports' to map the container port to the host.
+    # We bind to 127.0.0.1 to ensure the app is only accessible
+    # from the host itself (i.e., through Nginx) and not directly from the internet.
+    ports:
+      - "127.0.0.1:8000:8000"
     env_file:
       - ./.env
     depends_on:
