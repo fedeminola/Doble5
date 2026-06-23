@@ -4,3 +4,4 @@ django-unfold==0.81.0
 django-import-export
 xlwt
 tablib[all]
+gunicorn
