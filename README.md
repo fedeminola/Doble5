@@ -71,6 +71,7 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
       SECRET_KEY=tu_super_secreto_aqui_muy_largo_y_dificil
       DEBUG=0
       ALLOWED_HOSTS=tu_dominio.com,www.tu_dominio.com,la_ip_de_tu_servidor
+      CSRF_TRUSTED_ORIGINS=https://tu_dominio.com,https://www.tu_dominio.com
       POSTGRES_DB=doble5_prod
       POSTGRES_USER=doble5_user
       POSTGRES_PASSWORD=una_contraseña_muy_segura_para_postgres

@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,20 +20,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key'
+# The default value is for development only.
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-your-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG will be True unless the DEBUG environment variable is explicitly set to '0'.
+DEBUG = os.environ.get('DEBUG', '1') != '0'
 
-ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS is read from an environment variable.
+# For production, it should be a comma-separated string like "yourdomain.com,www.yourdomain.com"
+# The default '*' is for development and is insecure for production.
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
-# Configuración para acceso en red local
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://192.168.88.1:8000',
-]
-# Se recomienda agregar la IP local aquí una vez conocida, ej: 'http://192.168.1.100:8000'
+# CSRF_TRUSTED_ORIGINS is read from an environment variable.
+# For production, it should be a comma-separated string of your domains, e.g., "https://yourdomain.com,https://www.yourdomain.com"
+CSRF_TRUSTED_ORIGINS_STRING = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000')
+CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS_STRING.split(',') if CSRF_TRUSTED_ORIGINS_STRING else []
 
 
 # Application definition
@@ -82,21 +84,16 @@ WSGI_APPLICATION = 'Doble5.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": "doble5_db",
-#     }
-# }
-
+# Reads database configuration from environment variables.
+# Default values are provided for local development with docker-compose.yml.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'doble5_db',
-        'USER': 'doble5_user',
-        'PASSWORD': 'password',
-        'HOST': 'db',
-        'PORT': '5432',
+        'NAME': os.environ.get('POSTGRES_DB', 'doble5_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'doble5_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'password'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'db'),  # 'db' is the service name in docker-compose
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
@@ -136,6 +133,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / "mediafiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
