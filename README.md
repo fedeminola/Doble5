@@ -19,19 +19,26 @@ Este proyecto está configurado para dos entornos:
     cd Doble5
     ```
 
-2.  **Construir y levantar los contenedores:**
+2.  **Configurar el entorno local:**
+    - Copia el archivo de ejemplo `.env.example` a un nuevo archivo llamado `.env`.
+    ```bash
+    cp .env.example .env
+    ```
+    - Abre el archivo `.env` y asigna una contraseña a `POSTGRES_PASSWORD`. Para desarrollo, cualquier valor funcionará.
+
+3.  **Construir y levantar los contenedores:**
     ```bash
     docker-compose up --build
     ```
 
-3.  **Ejecutar comandos de Django (en otra terminal):**
+4.  **Ejecutar comandos de Django (en otra terminal):**
     ```bash
     docker-compose exec web python manage.py migrate
     docker-compose exec web python setup_groups.py
     docker-compose exec web python manage.py createsuperuser
     ```
 
-4.  **Acceder a la aplicación:**
+5.  **Acceder a la aplicación:**
     - Panel de Administración: [http://localhost:8000/admin](http://localhost:8000/admin)
 
 ---
@@ -72,20 +79,16 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
       ```
 
 5.  **Configuración del Entorno de Producción:**
-    - Crea un archivo `.env` en la raíz del proyecto:
+    - Copia el archivo de ejemplo `.env.example` a `.env` (si no lo hiciste para desarrollo):
       ```bash
-      nano .env
+      cp .env.example .env
       ```
-    - Añade las siguientes variables (reemplaza los valores):
-      ```env
-      SECRET_KEY=tu_super_secreto_aqui_muy_largo_y_dificil
-      DEBUG=0
-      ALLOWED_HOSTS=tu_dominio.com,www.tu_dominio.com,la_ip_de_tu_servidor
-      CSRF_TRUSTED_ORIGINS=https://tu_dominio.com,https://www.tu_dominio.com
-      POSTGRES_DB=doble5_prod
-      POSTGRES_USER=doble5_user
-      POSTGRES_PASSWORD=una_contraseña_muy_segura_para_postgres
-      ```
+    - Abre el archivo `.env` y edita las variables para tu entorno de producción. Asegúrate de:
+      - Generar una `SECRET_KEY` nueva y segura.
+      - Establecer `DEBUG=0`.
+      - Configurar `ALLOWED_HOSTS` con tu dominio y la IP del servidor.
+      - Configurar `CSRF_TRUSTED_ORIGINS` con tu dominio (ej. `https://tu_dominio.com`).
+      - Establecer una contraseña segura para `POSTGRES_PASSWORD`.
 
 6.  **Construir y Ejecutar Contenedores de Producción:**
     - Usa el archivo `docker-compose.prod.yml` para construir y correr los contenedores en segundo plano (`-d`):
