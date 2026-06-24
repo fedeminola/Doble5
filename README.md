@@ -27,6 +27,7 @@ Este proyecto está configurado para dos entornos:
 3.  **Ejecutar comandos de Django (en otra terminal):**
     ```bash
     docker-compose exec web python manage.py migrate
+    docker-compose exec web python setup_groups.py
     docker-compose exec web python manage.py createsuperuser
     ```
 
@@ -61,7 +62,16 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
     cd Doble5
     ```
 
-4.  **Configuración del Entorno de Producción:**
+4.  **Crear Directorios Compartidos para Archivos Estáticos:**
+    - Crea directorios en `/srv` para los archivos estáticos y multimedia, y asigna los permisos adecuados.
+      ```bash
+      sudo mkdir -p /srv/doble5/static
+      sudo mkdir -p /srv/doble5/media
+      sudo chown -R $USER:www-data /srv/doble5
+      sudo chmod -R 775 /srv/doble5
+      ```
+
+5.  **Configuración del Entorno de Producción:**
     - Crea un archivo `.env` en la raíz del proyecto:
       ```bash
       nano .env
@@ -77,16 +87,17 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
       POSTGRES_PASSWORD=una_contraseña_muy_segura_para_postgres
       ```
 
-5.  **Construir y Ejecutar Contenedores de Producción:**
+6.  **Construir y Ejecutar Contenedores de Producción:**
     - Usa el archivo `docker-compose.prod.yml` para construir y correr los contenedores en segundo plano (`-d`):
       ```bash
       docker-compose -f docker-compose.prod.yml up --build -d
       ```
 
-6.  **Comandos Iniciales de Django (Producción):**
-    - Ejecuta las migraciones y recolecta los archivos estáticos usando el archivo de producción:
+7.  **Comandos Iniciales de Django (Producción):**
+    - Ejecuta las migraciones, la configuración de grupos y la recolección de archivos estáticos.
       ```bash
       docker-compose -f docker-compose.prod.yml exec web python manage.py migrate
+      docker-compose -f docker-compose.prod.yml exec web python setup_groups.py
       docker-compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
       ```
     - Crea un superusuario para el entorno de producción:
@@ -94,13 +105,9 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
       docker-compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
       ```
 
-7.  **Configurar Nginx como Proxy Inverso:**
-    - El archivo `doble5.conf` en este repositorio contiene la configuración recomendada. Cópialo a tu servidor.
-    - Crea un archivo de configuración en Nginx:
-      ```bash
-      sudo nano /etc/nginx/sites-available/doble5
-      ```
-    - Pega el contenido de `doble5.conf`, **reemplazando `tu_dominio.com`**. Las rutas de los alias para `/static/` y `/media/` apuntan a las ubicaciones por defecto de los volúmenes de Docker.
+8.  **Configurar Nginx como Proxy Inverso:**
+    - El archivo `doble5.conf` en este repositorio contiene la configuración recomendada. Cópialo a `/etc/nginx/sites-available/doble5` en tu servidor.
+    - Asegúrate de que el contenido del archivo de Nginx apunte a los directorios compartidos:
       ```nginx
       # Contenido del archivo doble5.conf
       server {
@@ -118,14 +125,12 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
               proxy_set_header X-Forwarded-Proto $scheme;
           }
 
-          # El nombre del volumen es <nombre_del_directorio>_<nombre_del_volumen>.
-          # Para confirmar la ruta, ejecuta: sudo docker volume inspect Doble5_static_volume
           location /static/ {
-              alias /var/lib/docker/volumes/Doble5_static_volume/_data/;
+              alias /srv/doble5/static/;
           }
 
           location /media/ {
-              alias /var/lib/docker/volumes/Doble5_media_volume/_data/;
+              alias /srv/doble5/media/;
           }
       }
       ```
@@ -139,13 +144,13 @@ Para desplegar esta aplicación en un servidor de producción (ej. un VPS con Ub
       sudo systemctl restart nginx
       ```
 
-8.  **(Recomendado) Configurar SSL con Let's Encrypt:**
+9.  **(Recomendado) Configurar SSL con Let's Encrypt:**
     - Instala Certbot: `sudo apt install certbot python3-certbot-nginx`
     - Obtén el certificado: `sudo certbot --nginx -d tu_dominio.com -d www.tu_dominio.com`
 
-9.  **Acceder a la Aplicación:**
+10. **Acceder a la Aplicación:**
     - Tu aplicación estará disponible en `https://tu_dominio.com`.
 
-10. **Mantenimiento (Producción):**
+11. **Mantenimiento (Producción):**
     - Logs: `docker-compose -f docker-compose.prod.yml logs -f`
     - Detener: `docker-compose -f docker-compose.prod.yml down`

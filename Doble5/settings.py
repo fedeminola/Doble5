@@ -120,9 +120,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-ar'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 USE_I18N = True
 
@@ -213,6 +213,11 @@ UNFOLD = {
                         "title": "Reporte Diario",
                         "icon": "assessment",
                         "link": "/reportes/diario/",
+                    },
+                    {
+                        "title": "Reporte semanal",
+                        "icon": "insert_chart",
+                        "link": "/reportes/semanal/",
                     },
                     {
                         "title": "Reporte Mensual",
