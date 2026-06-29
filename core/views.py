@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Sum, Q
 from .models import (
-    Caja, MovimientoCaja, Notificacion, Sede, Cancha, Turno, Cliente, 
+    Caja, MovimientoCaja, Notificacion, Sede, Cancha, Turno, Cliente,
     Configuracion, Articulo, Venta, ItemVenta, Compra, ItemCompra, Proveedor, UserProfile
 )
 from .forms import VentaForm, ItemVentaFormSet, CompraForm, ItemCompraFormSet
@@ -26,12 +26,12 @@ from .decorators import group_required
 @group_required('Administrador')
 def export_reporte_diario_csv(request):
     import tablib
-    selected_date_str = request.GET.get('date', timezone.now().strftime('%Y-%m-%d'))
+    selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
     tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
     try:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     except ValueError:
-        selected_date = timezone.now().date()
+        selected_date = timezone.localtime(timezone.now()).date()
         selected_date_str = selected_date.strftime('%Y-%m-%d')
 
     headers = ('Fecha', 'Sede', 'Tipo Caja', 'Monto Inicial', 'Ingresos Efectivo', 'Ingresos Banco', 'Total Ingresos',
@@ -71,7 +71,7 @@ def export_reporte_diario_csv(request):
 @group_required('Administrador')
 def export_reporte_mensual_csv(request):
     import tablib
-    today = timezone.now()
+    today = timezone.localtime(timezone.now())
     selected_month = int(request.GET.get('month', today.month))
     selected_year = int(request.GET.get('year', today.year))
     tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
@@ -103,7 +103,7 @@ def export_reporte_mensual_csv(request):
 @login_required
 @group_required('Administrador')
 def reporte_mensual(request):
-    today = timezone.now()
+    today = timezone.localtime(timezone.now())
     selected_month = int(request.GET.get('month', today.month))
     selected_year = int(request.GET.get('year', today.year))
     tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
@@ -140,12 +140,12 @@ def reporte_mensual(request):
 @login_required
 @group_required('Administrador')
 def reporte_diario(request):
-    selected_date_str = request.GET.get('date', timezone.now().strftime('%Y-%m-%d'))
+    selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
     tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
     try:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     except ValueError:
-        selected_date = timezone.now().date()
+        selected_date = timezone.localtime(timezone.now()).date()
         selected_date_str = selected_date.strftime('%Y-%m-%d')
 
     caja = Caja.objects.filter(fecha=selected_date, tipo=tipo_caja).first()
@@ -161,7 +161,7 @@ def reporte_diario(request):
         total_ingresos = ingresos_efectivo + ingresos_banco
         total_egresos = MovimientoCaja.objects.filter(caja=caja, tipo='egreso').aggregate(total=Sum('monto'))[
                             'total'] or Decimal('0.00')
-        
+
         specific_data = {}
         if tipo_caja == 'CANCHA':
             specific_data['turnos_count'] = Turno.objects.filter(cancha__sede=caja.sede, fecha_hora_inicio__date=selected_date, estado='ocupado').count()
@@ -191,12 +191,12 @@ def reporte_diario(request):
 @login_required
 @group_required('Administrador')
 def reporte_semanal(request):
-    selected_date_str = request.GET.get('date', timezone.now().strftime('%Y-%m-%d'))
+    selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
     tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
     try:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     except ValueError:
-        selected_date = timezone.now().date()
+        selected_date = timezone.localtime(timezone.now()).date()
 
     start_week = selected_date - timedelta(days=selected_date.weekday())
     end_week = start_week + timedelta(days=6)
@@ -261,12 +261,12 @@ def eliminar_turno(request, turno_id):
 
 @login_required
 def turno_grid(request):
-    selected_date_str = request.GET.get('date', timezone.now().strftime('%Y-%m-%d'))
+    selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
     view_mode = request.GET.get('view', 'day')  # 'day' o 'week'
     try:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     except ValueError:
-        selected_date = timezone.now().date()
+        selected_date = timezone.localtime(timezone.now()).date()
         selected_date_str = selected_date.strftime('%Y-%m-%d')
 
     sede_id = request.GET.get('sede')
@@ -384,8 +384,9 @@ def turno_grid(request):
         # Estructura: grid[cancha_id][dia][hora]
         turnos_grid = {c.id: {d: {} for d in days_range} for c in canchas}
         for t in turnos:
-            d = t.fecha_hora_inicio.date()
-            h = t.fecha_hora_inicio.hour
+            local_time = timezone.localtime(t.fecha_hora_inicio)
+            d = local_time.date()
+            h = local_time.hour
             if t.cancha.id in turnos_grid and d in turnos_grid[t.cancha.id]:
                 turnos_grid[t.cancha.id][d][h] = t
 
@@ -403,7 +404,8 @@ def turno_grid(request):
 
         turnos_grid = {c.id: {h: None for h in range(13, 24)} for c in canchas}
         for t in turnos:
-            h = t.fecha_hora_inicio.hour
+            local_time = timezone.localtime(t.fecha_hora_inicio)
+            h = local_time.hour
             if t.cancha.id in turnos_grid and h in turnos_grid[t.cancha.id]:
                 turnos_grid[t.cancha.id][h] = t
 
@@ -423,6 +425,7 @@ def turno_grid(request):
         'selected_date_str': selected_date_str,
         'precio_sugerido': Configuracion.objects.first().precio_turno if Configuracion.objects.exists() else 0,
         'caja_abierta': caja_abierta,
+        'today': timezone.localtime(timezone.now()).date(),
     })
     return render(request, 'core/turno_grid.html', context)
 
@@ -445,7 +448,7 @@ def registrar_venta(request):
         if not caja_abierta:
             messages.error(request, "Debe abrir una caja de buffet para realizar ventas.")
             return redirect('registrar_venta')
-        
+
         form = VentaForm(request.POST)
         formset = ItemVentaFormSet(request.POST)
 
@@ -456,7 +459,7 @@ def registrar_venta(request):
                     venta.usuario = request.user
                     venta.caja = caja_abierta
                     venta.save()
-                    
+
                     items = formset.save(commit=False)
                     total_venta = 0
                     for item in items:
@@ -467,12 +470,12 @@ def registrar_venta(request):
                             item.precio_venta_momento = item.articulo.precio_venta
                         item.save()
                         total_venta += item.cantidad * item.precio_venta_momento
-                    
+
                     venta.total = total_venta
                     # Validar que los montos coincidan con el total
                     total_pagado = venta.monto_efectivo + venta.monto_transferencia
                     if total_pagado != total_venta:
-                        # Opcional: ajustar si uno es cero, o lanzar error. 
+                        # Opcional: ajustar si uno es cero, o lanzar error.
                         # Por ahora permitimos guardar pero es mejor que coincida.
                         pass
                     venta.save()
@@ -498,7 +501,7 @@ def registrar_venta(request):
                             descripcion=f"Venta Buffet #{venta.id} (Transferencia)",
                             venta=venta
                         )
-                    
+
                     messages.success(request, f"Venta #{venta.id} registrada correctamente.")
                     return redirect('registrar_venta')
             except Exception as e:
@@ -540,17 +543,17 @@ def registrar_compra(request):
                     compra = form.save(commit=False)
                     compra.usuario = request.user
                     compra.save()
-                    
+
                     items = formset.save(commit=False)
                     total_compra = 0
                     for item in items:
                         item.compra = compra
                         item.save()
                         total_compra += item.cantidad * item.precio_costo_momento
-                    
+
                     compra.total = total_compra
                     compra.save()
-                    
+
                     messages.success(request, f"Compra #{compra.id} registrada correctamente.")
                     return redirect('registrar_compra')
             except Exception as e:
@@ -606,10 +609,10 @@ def abrir_caja(request):
 
         if monto_inicial and sede_id_post and tipo_post:
             sede = get_object_or_404(Sede, id=sede_id_post)
-            if not Caja.objects.filter(sede=sede, fecha=timezone.now().date(), abierta=True, tipo=tipo_post).exists():
+            if not Caja.objects.filter(sede=sede, fecha=timezone.localtime(timezone.now()).date(), abierta=True, tipo=tipo_post).exists():
                 Caja.objects.create(
                     sede=sede,
-                    fecha=timezone.now().date(),
+                    fecha=timezone.localtime(timezone.now()).date(),
                     usuario_apertura=request.user,
                     monto_inicial=Decimal(monto_inicial),
                     abierta=True,
@@ -633,7 +636,7 @@ def abrir_caja(request):
 
 @login_required
 def cerrar_caja(request):
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
 
     sede_id = request.GET.get('sede')
     tipo = request.GET.get('tipo')
