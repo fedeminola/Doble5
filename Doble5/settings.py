@@ -167,10 +167,15 @@ UNFOLD = {
                         "icon": "shopping_cart",
                         "link": "/ventas/registrar/",
                     },
-{
+                    {
                         "title": "Registrar Compra (Bufet)",
                         "icon": "shopping_basket",
                         "link": "/compras/registrar/",
+                    },
+                    {
+                        "title": "Registrar Egreso",
+                        "icon": "remove_circle_outline",
+                        "link": "/egresos/registrar/",
                     },
                 ],
             },

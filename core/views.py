@@ -1,4 +1,5 @@
 import csv
+import pytz
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -10,14 +11,14 @@ from .models import (
     Caja, MovimientoCaja, Notificacion, Sede, Cancha, Turno, Cliente,
     Configuracion, Articulo, Venta, ItemVenta, Compra, ItemCompra, Proveedor, UserProfile
 )
-from .forms import VentaForm, ItemVentaFormSet, CompraForm, ItemCompraFormSet
+from .forms import VentaForm, ItemVentaFormSet, CompraForm, ItemCompraFormSet, EgresoForm
 from django.contrib.admin.models import LogEntry, ADDITION, CHANGE, DELETION
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import User
 from decimal import Decimal
 from datetime import datetime, time, timedelta
 from collections import defaultdict
-from .decorators import group_required
+from .decorators import group_required, group_forbidden
 
 
 # --- Vistas de Reportes y Exportación ---
@@ -230,6 +231,7 @@ def reporte_semanal(request):
 
 # --- Vistas de Turnos ---
 @login_required
+@group_required('Administrador', 'Empleado')
 def eliminar_turno(request, turno_id):
     turno = get_object_or_404(Turno, id=turno_id)
     if request.method == 'POST':
@@ -260,6 +262,7 @@ def eliminar_turno(request, turno_id):
 
 
 @login_required
+@group_forbidden('Visualizador')
 def turno_grid(request):
     selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
     view_mode = request.GET.get('view', 'day')  # 'day' o 'week'
@@ -371,6 +374,9 @@ def turno_grid(request):
 
     canchas = Cancha.objects.filter(sede=selected_sede) if selected_sede else []
     time_slots = [time(h) for h in range(13, 24)]
+    
+    # Definir la zona horaria de Argentina explícitamente
+    tz = pytz.timezone('America/Argentina/Buenos_Aires')
 
     if view_mode == 'week':
         start_week = selected_date - timedelta(days=selected_date.weekday())
@@ -384,7 +390,7 @@ def turno_grid(request):
         # Estructura: grid[cancha_id][dia][hora]
         turnos_grid = {c.id: {d: {} for d in days_range} for c in canchas}
         for t in turnos:
-            local_time = timezone.localtime(t.fecha_hora_inicio)
+            local_time = t.fecha_hora_inicio.astimezone(tz)
             d = local_time.date()
             h = local_time.hour
             if t.cancha.id in turnos_grid and d in turnos_grid[t.cancha.id]:
@@ -404,7 +410,7 @@ def turno_grid(request):
 
         turnos_grid = {c.id: {h: None for h in range(13, 24)} for c in canchas}
         for t in turnos:
-            local_time = timezone.localtime(t.fecha_hora_inicio)
+            local_time = t.fecha_hora_inicio.astimezone(tz)
             h = local_time.hour
             if t.cancha.id in turnos_grid and h in turnos_grid[t.cancha.id]:
                 turnos_grid[t.cancha.id][h] = t
@@ -433,6 +439,7 @@ def turno_grid(request):
 # --- Vistas de Ventas y Compras ---
 
 @login_required
+@group_forbidden('Visualizador')
 def registrar_venta(request):
     try:
         sede = request.user.userprofile.sede
@@ -519,6 +526,7 @@ def registrar_venta(request):
     return render(request, 'core/registrar_venta.html', context)
 
 @login_required
+@group_forbidden('Visualizador')
 def registrar_compra(request):
     try:
         sede = request.user.userprofile.sede
@@ -571,6 +579,52 @@ def registrar_compra(request):
     return render(request, 'core/registrar_compra.html', context)
 
 @login_required
+@group_forbidden('Visualizador')
+def registrar_egreso(request):
+    try:
+        sede = request.user.userprofile.sede
+        if not sede:
+            raise UserProfile.DoesNotExist
+    except UserProfile.DoesNotExist:
+        messages.error(request, "Tu usuario no está asociado a ninguna sede.")
+        return redirect('admin:index')
+
+    # Los egresos pueden ser de caja CANCHA o BUFET, necesitamos un selector
+    tipo_caja = request.GET.get('tipo', 'BUFET')
+    caja_abierta = Caja.objects.filter(sede=sede, tipo=tipo_caja, abierta=True, fecha=timezone.localtime(timezone.now()).date()).first()
+
+    if request.method == 'POST':
+        if not caja_abierta:
+            messages.error(request, f"Debe abrir una caja de '{tipo_caja}' para registrar egresos.")
+            return redirect('registrar_egreso')
+
+        form = EgresoForm(request.POST)
+        if form.is_valid():
+            egreso = form.save(commit=False)
+            egreso.caja = caja_abierta
+            egreso.usuario = request.user
+            egreso.tipo = 'egreso'
+            
+            # Si se seleccionó un proveedor, añadirlo a la descripción
+            if form.cleaned_data.get('proveedor'):
+                egreso.descripcion += f" (Proveedor: {form.cleaned_data['proveedor'].nombre})"
+
+            egreso.save()
+            messages.success(request, "Egreso registrado correctamente.")
+            return redirect('registrar_egreso')
+    else:
+        form = EgresoForm()
+
+    context = {
+        'form': form,
+        'caja_abierta': caja_abierta,
+        'sede': sede,
+        'tipo_caja': tipo_caja,
+    }
+    return render(request, 'core/registrar_egreso.html', context)
+
+
+@login_required
 def buscar_articulos(request):
     query = request.GET.get('q', '')
     context = request.GET.get('context', 'venta')  # 'venta' o 'compra'
@@ -596,6 +650,7 @@ def buscar_articulos(request):
 # --- Vistas de Caja ---
 
 @login_required
+@group_forbidden('Visualizador')
 def abrir_caja(request):
     tipo = request.GET.get('tipo', 'CANCHA')
     sede_id = request.GET.get('sede')
@@ -635,6 +690,7 @@ def abrir_caja(request):
     return render(request, 'core/abrir_caja.html', context)
 
 @login_required
+@group_forbidden('Visualizador')
 def cerrar_caja(request):
     today = timezone.localtime(timezone.now()).date()
 

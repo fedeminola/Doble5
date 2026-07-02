@@ -14,9 +14,10 @@ urlpatterns = [
     path('turno-grid/', views.turno_grid, name='turno_grid'),
     path('turno-delete/<int:turno_id>/', views.eliminar_turno, name='eliminar_turno'),
 
-    # Ventas y Compras
+    # Ventas, Compras y Egresos
     path('ventas/registrar/', views.registrar_venta, name='registrar_venta'),
     path('compras/registrar/', views.registrar_compra, name='registrar_compra'),
+    path('egresos/registrar/', views.registrar_egreso, name='registrar_egreso'),
     
     # API para autocomplete
     path('api/buscar-articulos/', views.buscar_articulos, name='buscar_articulos'),

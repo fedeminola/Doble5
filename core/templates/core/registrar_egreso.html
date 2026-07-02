@@ -1,0 +1,60 @@
+{% extends "core/base.html" %}
+
+{% block title %}Registrar Egreso - Doble5{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Registrar Egreso</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-minus-circle me-1"></i>
+            Nuevo Egreso
+        </div>
+        <div class="card-body">
+            {% if not caja_abierta %}
+                <div class="alert alert-warning" role="alert">
+                    <strong>Atención:</strong> No hay una caja de tipo <strong>{{ tipo_caja }}</strong> abierta para la fecha de hoy en tu sede.
+                    <br>
+                    Debes <a href="{% url 'abrir_caja' %}?sede={{ sede.id }}&tipo={{ tipo_caja }}&next={{ request.path|urlencode }}">abrir la caja</a> para poder registrar egresos.
+                </div>
+            {% else %}
+                <form method="get" class="mb-3">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label for="tipo_caja_select" class="form-label">Seleccionar Caja para el Egreso:</label>
+                            <select name="tipo" id="tipo_caja_select" class="form-select" onchange="this.form.submit()">
+                                <option value="BUFET" {% if tipo_caja == 'BUFET' %}selected{% endif %}>Caja de Buffet</option>
+                                <option value="CANCHA" {% if tipo_caja == 'CANCHA' %}selected{% endif %}>Caja de Cancha</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.monto.id_for_label }}" class="form-label">{{ form.monto.label }}</label>
+                            {{ form.monto }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.metodo_pago.id_for_label }}" class="form-label">{{ form.metodo_pago.label }}</label>
+                            {{ form.metodo_pago }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label">{{ form.descripcion.label }}</label>
+                        {{ form.descripcion }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.proveedor.id_for_label }}" class="form-label">{{ form.proveedor.label }} (Opcional)</label>
+                        {{ form.proveedor }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">Registrar Egreso</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

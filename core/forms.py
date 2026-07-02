@@ -1,5 +1,5 @@
 from django import forms
-from .models import Venta, ItemVenta, Compra, ItemCompra, Articulo, Proveedor
+from .models import Venta, ItemVenta, Compra, ItemCompra, Articulo, Proveedor, MovimientoCaja
 
 class VentaForm(forms.ModelForm):
     class Meta:
@@ -52,3 +52,19 @@ ItemCompraFormSet = forms.inlineformset_factory(
     Compra, ItemCompra, form=ItemCompraForm,
     extra=1, can_delete=True, can_delete_extra=True
 )
+
+class EgresoForm(forms.ModelForm):
+    proveedor = forms.ModelChoiceField(
+        queryset=Proveedor.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    class Meta:
+        model = MovimientoCaja
+        fields = ['monto', 'descripcion', 'metodo_pago', 'proveedor']
+        widgets = {
+            'monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'descripcion': forms.TextInput(attrs={'class': 'form-control'}),
+            'metodo_pago': forms.Select(attrs={'class': 'form-select'}),
+        }

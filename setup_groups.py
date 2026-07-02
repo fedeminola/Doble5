@@ -1,4 +1,3 @@
-
 import os
 import django
 
@@ -13,37 +12,56 @@ from core.models import (
 )
 
 def setup_groups():
+    # --- Grupo Administrador ---
     admin_group, _ = Group.objects.get_or_create(name='Administrador')
+    # Los administradores tienen todos los permisos por defecto, no es necesario asignarlos explícitamente
+    # si su usuario es `is_superuser`. Si no, se les deben asignar todos los permisos aquí.
+
+    # --- Grupo Empleado ---
     empleado_group, _ = Group.objects.get_or_create(name='Empleado')
 
     # Permisos para Empleado
-    turno_ct = ContentType.objects.get_for_model(Turno)
-    movimiento_ct = ContentType.objects.get_for_model(MovimientoCaja)
-    cliente_ct = ContentType.objects.get_for_model(Cliente)
-    caja_ct = ContentType.objects.get_for_model(Caja)
-    articulo_ct = ContentType.objects.get_for_model(Articulo)
-    venta_ct = ContentType.objects.get_for_model(Venta)
-    compra_ct = ContentType.objects.get_for_model(Compra)
-    proveedor_ct = ContentType.objects.get_for_model(Proveedor)
+    empleado_models = [
+        Turno, MovimientoCaja, Cliente, Caja, Articulo, Venta, Compra, Proveedor
+    ]
+    empleado_codenames = [
+        'add_turno', 'change_turno', 'delete_turno', 'view_turno',
+        'add_movimientocaja', 'change_movimientocaja', 'view_movimientocaja',
+        'add_cliente', 'change_cliente', 'view_cliente',
+        'add_caja', 'change_caja', 'view_caja',
+        'view_articulo', 'add_articulo', 'change_articulo',
+        'add_venta', 'view_venta',
+        'add_compra', 'view_compra',
+        'add_proveedor', 'view_proveedor', 'change_proveedor',
+    ]
     
-    turno_perms = Permission.objects.filter(content_type=turno_ct, codename__in=['add_turno', 'change_turno', 'delete_turno', 'view_turno'])
-    movimiento_perms = Permission.objects.filter(content_type=movimiento_ct, codename__in=['add_movimientocaja', 'change_movimientocaja', 'view_movimientocaja'])
-    cliente_perms = Permission.objects.filter(content_type=cliente_ct, codename__in=['add_cliente', 'change_cliente', 'view_cliente'])
-    caja_perms = Permission.objects.filter(content_type=caja_ct, codename__in=['add_caja', 'change_caja', 'view_caja'])
-    articulo_perms = Permission.objects.filter(content_type=articulo_ct, codename__in=['view_articulo'])
-    venta_perms = Permission.objects.filter(content_type=venta_ct, codename__in=['add_venta', 'view_venta'])
-    compra_perms = Permission.objects.filter(content_type=compra_ct, codename__in=['add_compra', 'view_compra'])
-    proveedor_perms = Permission.objects.filter(content_type=proveedor_ct, codename__in=['add_proveedor', 'view_proveedor', 'change_proveedor'])
+    empleado_permissions = []
+    for model in empleado_models:
+        ct = ContentType.objects.get_for_model(model)
+        for perm in Permission.objects.filter(content_type=ct):
+            if perm.codename in empleado_codenames:
+                empleado_permissions.append(perm)
+
+    empleado_group.permissions.set(empleado_permissions)
+
+    # --- Grupo Visualizador ---
+    visualizador_group, _ = Group.objects.get_or_create(name='Visualizador')
     
-    all_perms = (
-        list(turno_perms) + list(movimiento_perms) + list(cliente_perms) + 
-        list(caja_perms) + list(articulo_perms) + list(venta_perms) + 
-        list(compra_perms) + list(proveedor_perms)
-    )
+    visualizador_models = [
+        Sede, Cancha, Caja, Articulo, Proveedor, Cliente, MovimientoCaja
+    ]
     
-    empleado_group.permissions.set(all_perms)
-    
-    print("Grupos y permisos configurados correctamente.")
+    visualizador_permissions = []
+    for model in visualizador_models:
+        ct = ContentType.objects.get_for_model(model)
+        # Asignar solo el permiso de 'view'
+        view_perm = Permission.objects.filter(content_type=ct, codename__startswith='view_').first()
+        if view_perm:
+            visualizador_permissions.append(view_perm)
+            
+    visualizador_group.permissions.set(visualizador_permissions)
+
+    print("Grupos y permisos 'Empleado' y 'Visualizador' configurados correctamente.")
 
 if __name__ == "__main__":
     setup_groups()
