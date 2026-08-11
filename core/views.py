@@ -298,8 +298,16 @@ def turno_grid(request):
         hora = int(request.POST.get('hora'))
         modal_date_str = request.POST.get('date')
         
-        creation_date = datetime.strptime(modal_date_str, '%Y-%m-%d').date() if modal_date_str else selected_date
-        
+        try:
+            if modal_date_str:
+                # El formato que viene del POST es 'd/m/Y'
+                creation_date = datetime.strptime(modal_date_str, '%d/%m/%Y').date()
+            else:
+                creation_date = selected_date
+        except ValueError:
+            messages.error(request, "El formato de la fecha es incorrecto. No se pudo guardar el turno.")
+            return redirect(f"{request.path}?date={selected_date_str}&sede={selected_sede.id if selected_sede else ''}&view={view_mode}")
+
         monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
         monto_transferencia = Decimal(request.POST.get('monto_transferencia', '0'))
 
