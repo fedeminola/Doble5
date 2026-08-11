@@ -278,7 +278,7 @@ def eliminar_turno(request, turno_id):
 @group_forbidden('Visualizador')
 def turno_grid(request):
     selected_date_str = request.GET.get('date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d'))
-    view_mode = request.GET.get('view', 'day')  # 'day' o 'week'
+    view_mode = request.GET.get('view', 'day')
     try:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     except ValueError:
@@ -287,10 +287,7 @@ def turno_grid(request):
 
     sede_id = request.GET.get('sede')
     sedes = Sede.objects.all()
-    if not sede_id and sedes.exists():
-        selected_sede = sedes.first()
-    else:
-        selected_sede = Sede.objects.get(id=sede_id) if sede_id else None
+    selected_sede = get_object_or_404(Sede, id=sede_id) if sede_id else (sedes.first() if sedes.exists() else None)
 
     if request.method == 'POST' and ('nuevo_turno' in request.POST or 'editar_turno' in request.POST):
         turno_id = request.POST.get('turno_id')
@@ -299,11 +296,8 @@ def turno_grid(request):
         modal_date_str = request.POST.get('date')
         
         try:
-            if modal_date_str:
-                # El formato que viene del POST es 'd/m/Y'
-                creation_date = datetime.strptime(modal_date_str, '%d/%m/%Y').date()
-            else:
-                creation_date = selected_date
+            # El formato que viene del POST es 'd/m/Y'
+            creation_date = datetime.strptime(modal_date_str, '%d/%m/%Y').date() if modal_date_str else selected_date
         except ValueError:
             messages.error(request, "El formato de la fecha es incorrecto. No se pudo guardar el turno.")
             return redirect(f"{request.path}?date={selected_date_str}&sede={selected_sede.id if selected_sede else ''}&view={view_mode}")
@@ -359,6 +353,21 @@ def turno_grid(request):
     canchas = Cancha.objects.filter(sede=selected_sede) if selected_sede else []
     time_slots = [time(h) for h in range(13, 24)]
     tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    
+    dias_con_caja_abierta = set()
+    if selected_sede:
+        date_range_filter = {'fecha': selected_date}
+        if view_mode == 'week':
+            start_week = selected_date - timedelta(days=selected_date.weekday())
+            end_week = start_week + timedelta(days=6)
+            date_range_filter = {'fecha__range': [start_week, end_week]}
+
+        dias_con_caja_abierta = set(Caja.objects.filter(
+            sede=selected_sede, 
+            abierta=True, 
+            tipo='CANCHA', 
+            **date_range_filter
+        ).values_list('fecha', flat=True))
 
     if view_mode == 'week':
         start_week = selected_date - timedelta(days=selected_date.weekday())
@@ -379,14 +388,13 @@ def turno_grid(request):
             if t.cancha.id in turnos_grid and h in turnos_grid[t.cancha.id]:
                 turnos_grid[t.cancha.id][h] = t
         context_specific = {'view_mode': 'day', 'selected_date': selected_date, 'prev_day': (selected_date - timedelta(days=1)).strftime('%Y-%m-%d'), 'next_day': (selected_date + timedelta(days=1)).strftime('%Y-%m-%d')}
-    
-    caja_abierta_hoy = Caja.objects.filter(sede=selected_sede, fecha=timezone.now().date(), abierta=True, tipo='CANCHA').exists() if selected_sede else False
 
     context = {
         'sedes': sedes, 'selected_sede': selected_sede, 'canchas': canchas, 'time_slots': time_slots,
         'turnos_grid': turnos_grid, 'selected_date_str': selected_date_str,
         'precio_sugerido': Configuracion.objects.first().precio_turno if Configuracion.objects.exists() else 0,
-        'caja_abierta_hoy': caja_abierta_hoy, 'today': timezone.localtime(timezone.now()).date(),
+        'dias_con_caja_abierta': dias_con_caja_abierta,
+        'today': timezone.localtime(timezone.now()).date(),
     }
     context.update(context_specific)
     return render(request, 'core/turno_grid.html', context)

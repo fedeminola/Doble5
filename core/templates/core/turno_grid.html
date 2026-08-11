@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load core_extras %}
 
-{% block title %}Grilla de Turnos - Doble5{% endblock %}
+{% block title %}Grilla de Turnos - {{ NOMBRE_ESTABLECIMIENTO }}{% endblock %}
 
 {% block extra_css %}
     <style>
@@ -141,6 +141,8 @@
                                                        data-cancha-id="{{ cancha.id }}"
                                                        data-cancha-nombre="{{ cancha.nombre }}"
                                                        data-hora="{{ time.hour }}"
+                                                       data-date="{{ selected_date|date:'d/m/Y' }}"
+                                                       data-caja-abierta="{% if selected_date in dias_con_caja_abierta %}true{% else %}false{% endif %}"
                                                        data-telefono="{{ turno.cliente.telefono|default:'' }}"
                                                        data-nombre="{{ turno.cliente.nombre }}"
                                                        data-precio="{{ turno.precio_total|human_decimal }}"
@@ -152,7 +154,9 @@
                                                     <a href="#" class="slot-link libre add-turno-btn"
                                                        data-cancha-id="{{ cancha.id }}"
                                                        data-cancha-nombre="{{ cancha.nombre }}"
-                                                       data-hora="{{ time.hour }}">
+                                                       data-hora="{{ time.hour }}"
+                                                       data-date="{{ selected_date|date:'d/m/Y' }}"
+                                                       data-caja-abierta="{% if selected_date in dias_con_caja_abierta %}true{% else %}false{% endif %}">
                                                         Libre
                                                     </a>
                                                 {% endif %}
@@ -203,6 +207,8 @@
                                                                data-cancha-id="{{ cancha.id }}"
                                                                data-cancha-nombre="{{ cancha.nombre }}"
                                                                data-hora="{{ time.hour }}"
+                                                               data-date="{{ day|date:'d/m/Y' }}"
+                                                               data-caja-abierta="{% if day in dias_con_caja_abierta %}true{% else %}false{% endif %}"
                                                                data-telefono="{{ turno.cliente.telefono|default:'' }}"
                                                                data-nombre="{{ turno.cliente.nombre }}"
                                                                data-precio="{{ turno.precio_total|human_decimal }}"
@@ -215,7 +221,8 @@
                                                                data-cancha-id="{{ cancha.id }}"
                                                                data-cancha-nombre="{{ cancha.nombre }}"
                                                                data-hora="{{ time.hour }}"
-                                                               data-date="{{ day|date:'Y-m-d' }}">
+                                                               data-date="{{ day|date:'d/m/Y' }}"
+                                                               data-caja-abierta="{% if day in dias_con_caja_abierta %}true{% else %}false{% endif %}">
                                                                 +
                                                             </a>
                                                         {% endif %}
@@ -275,23 +282,21 @@
                                 <label class="form-label fw-bold small text-success">Pago Efectivo</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" step="0.01" name="monto_efectivo" id="modal_efectivo" class="form-control" value="0" {% if not caja_abierta %}disabled{% endif %}>
+                                    <input type="number" step="0.01" name="monto_efectivo" id="modal_efectivo" class="form-control" value="0">
                                 </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small text-primary">Pago Transferencia</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" step="0.01" name="monto_transferencia" id="modal_transferencia" class="form-control" value="0" {% if not caja_abierta %}disabled{% endif %}>
+                                    <input type="number" step="0.01" name="monto_transferencia" id="modal_transferencia" class="form-control" value="0">
                                 </div>
                             </div>
-                            {% if not caja_abierta %}
-                            <div class="col-12">
+                            <div id="cajaCerradaWarning" class="col-12" style="display: none;">
                                 <div class="alert alert-warning py-2 small">
                                     <strong>Atención:</strong> La caja de 'Cancha' para esta fecha está cerrada. No se pueden registrar pagos.
                                 </div>
                             </div>
-                            {% endif %}
                         </div>
                     </div>
                 </form>
@@ -317,6 +322,7 @@
         const turnoModal = new bootstrap.Modal(document.getElementById('modalTurno'));
 
         function unformatNumber(str) {
+            if (typeof str !== 'string') return 0;
             return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
@@ -324,7 +330,7 @@
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const d = btn.dataset;
-                prepareModal(d.canchaId, d.canchaNombre, d.hora, d.date);
+                prepareModal(d.canchaId, d.canchaNombre, d.hora, d.date, d.cajaAbierta === 'true');
             });
         });
 
@@ -332,35 +338,37 @@
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const d = btn.dataset;
-                editModal(d.id, d.canchaId, d.canchaNombre, d.hora, d.telefono, d.nombre, d.precio, d.efectivo, d.transferencia);
+                editModal(d.id, d.canchaId, d.canchaNombre, d.hora, d.date, d.cajaAbierta === 'true', d.telefono, d.nombre, d.precio, d.efectivo, d.transferencia);
             });
         });
 
-        function prepareModal(canchaId, canchaNombre, hora, dateStr = null) {
+        function setPaymentFieldsState(enabled) {
+            document.getElementById('modal_efectivo').disabled = !enabled;
+            document.getElementById('modal_transferencia').disabled = !enabled;
+            document.getElementById('cajaCerradaWarning').style.display = enabled ? 'none' : 'block';
+        }
+
+        function prepareModal(canchaId, canchaNombre, hora, dateStr, isCajaAbierta) {
             resetModal();
-            document.getElementById('turnoForm').action = '';
             document.getElementById('cancha_id').value = canchaId;
             document.getElementById('hora').value = hora;
-            const selectedDate = dateStr || '{{ selected_date_str }}';
-            document.getElementById('modal_date').value = selectedDate;
+            document.getElementById('modal_date').value = dateStr;
+            document.getElementById('modalTitle').innerText = `Nuevo Turno: ${canchaNombre} - ${dateStr} ${hora}:00 hs`;
 
-            if(dateStr) {
-                document.getElementById('modalTitle').innerText = `Nuevo Turno: ${canchaNombre} - ${dateStr} ${hora}:00 hs`;
-            } else {
-                document.getElementById('modalTitle').innerText = `Nuevo Turno: ${canchaNombre} - ${hora}:00 hs`;
-            }
+            setPaymentFieldsState(isCajaAbierta);
+
             document.getElementById('form_action_new').disabled = false;
             document.getElementById('form_action_edit').disabled = true;
             turnoModal.show();
         }
 
-        function editModal(turnoId, canchaId, canchaNombre, hora, telefono, nombre, precio, efectivo, transferencia) {
+        function editModal(turnoId, canchaId, canchaNombre, hora, dateStr, isCajaAbierta, telefono, nombre, precio, efectivo, transferencia) {
             resetModal();
-            document.getElementById('turnoForm').action = '';
-            document.getElementById('modalTitle').innerText = `Editar Turno: ${canchaNombre} - ${hora}:00 hs`;
+            document.getElementById('modalTitle').innerText = `Editar Turno: ${canchaNombre} - ${dateStr} ${hora}:00 hs`;
             document.getElementById('turno_id').value = turnoId;
             document.getElementById('cancha_id').value = canchaId;
             document.getElementById('hora').value = hora;
+            document.getElementById('modal_date').value = dateStr;
             document.getElementById('modal_telefono').value = telefono;
             document.getElementById('modal_nombre').value = nombre;
 
@@ -368,6 +376,8 @@
             document.getElementById('modal_precio').value = unformatNumber(precio);
             document.getElementById('modal_efectivo').value = unformatNumber(efectivo);
             document.getElementById('modal_transferencia').value = unformatNumber(transferencia);
+
+            setPaymentFieldsState(isCajaAbierta);
 
             document.getElementById('form_action_new').disabled = true;
             document.getElementById('form_action_edit').disabled = false;
@@ -394,6 +404,7 @@
             document.getElementById('deleteForm').action = '';
             document.getElementById('modal_precio_display').value = '{{ precio_sugerido|human_decimal }}';
             document.getElementById('modal_precio').value = '{{ precio_sugerido }}';
+            setPaymentFieldsState(false); // Default to disabled
         }
     </script>
 {% endblock %}
