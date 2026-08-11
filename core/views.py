@@ -214,17 +214,16 @@ def reporte_semanal(request):
     start_week = selected_date - timedelta(days=selected_date.weekday())
     end_week = start_week + timedelta(days=6)
 
-    total_ingresos = MovimientoCaja.objects.filter(
+    base_query = MovimientoCaja.objects.filter(
         caja__fecha__range=[start_week, end_week],
-        caja__tipo=tipo_caja,
-        tipo='ingreso'
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        caja__tipo=tipo_caja
+    )
 
-    total_egresos = MovimientoCaja.objects.filter(
-        caja__fecha__range=[start_week, end_week],
-        caja__tipo=tipo_caja,
-        tipo='egreso'
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    ingresos_efectivo = base_query.filter(tipo='ingreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    ingresos_banco = base_query.filter(tipo='ingreso', metodo_pago='banco').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingresos = ingresos_efectivo + ingresos_banco
+    
+    total_egresos = base_query.filter(tipo='egreso').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
     ganancia = total_ingresos - total_egresos
 
@@ -232,6 +231,8 @@ def reporte_semanal(request):
         'selected_date_str': selected_date.strftime('%Y-%m-%d'),
         'start_week': start_week,
         'end_week': end_week,
+        'ingresos_efectivo': ingresos_efectivo,
+        'ingresos_banco': ingresos_banco,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
         'ganancia': ganancia,

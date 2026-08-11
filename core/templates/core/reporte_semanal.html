@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load core_extras %}
 
-{% block title %}Reporte Semanal - Doble5{% endblock %}
+{% block title %}Reporte Semanal - {{ NOMBRE_ESTABLECIMIENTO }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -27,20 +27,26 @@
             </div>
             <hr>
             <div class="row mt-4">
-                <div class="col-md-4 mb-3">
-                    <div class="p-4 border rounded bg-light text-center">
-                        <h6 class="text-uppercase small fw-bold">Total Ingresos</h6>
-                        <h2 class="text-primary">${{ total_ingresos|human_decimal }}</h2>
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Ingresos Efectivo</h6>
+                        <h3 class="text-success">${{ ingresos_efectivo|human_decimal }}</h3>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <div class="p-4 border rounded bg-light text-center">
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Ingresos Transferencia</h6>
+                        <h3 class="text-primary">${{ ingresos_banco|human_decimal }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
                         <h6 class="text-uppercase small fw-bold">Total Egresos</h6>
-                        <h2 class="text-danger">${{ total_egresos|human_decimal }}</h2>
+                        <h3 class="text-danger">${{ total_egresos|human_decimal }}</h3>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <div class="p-4 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %} text-center">
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
                         <h6 class="text-uppercase small fw-bold">Ganancia / Pérdida</h6>
                         <h2 class="{% if ganancia >= 0 %}text-success{% else %}text-danger{% endif %}">${{ ganancia|human_decimal }}</h2>
                     </div>

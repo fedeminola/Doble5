@@ -37,6 +37,9 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 CSRF_TRUSTED_ORIGINS_STRING = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000')
 CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS_STRING.split(',') if CSRF_TRUSTED_ORIGINS_STRING else []
 
+# White-label setting
+NOMBRE_ESTABLECIMIENTO = os.environ.get('NOMBRE_ESTABLECIMIENTO', 'Doble5')
+
 
 # Application definition
 
@@ -74,6 +77,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.nombre_establecimiento_processor',
             ],
         },
     },
@@ -150,7 +154,7 @@ LOGOUT_REDIRECT_URL = 'admin:login'
 
 # Unfold theme settings
 UNFOLD = {
-    "SITE_TITLE": "Doble5 Admin",
+    "SITE_TITLE": f"{NOMBRE_ESTABLECIMIENTO} Admin",
     "SIDEBAR": {
         "show_search": True,
         "navigation": [
