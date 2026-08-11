@@ -85,7 +85,7 @@ class ItemCompraInline(admin.TabularInline):
 class CompraAdmin(ModelAdmin):
     inlines = [ItemCompraInline]
     list_display = ('id', 'fecha', 'proveedor', 'usuario', 'total')
-    list_filter = ('fecha', 'proveedor__sede', 'usuario')
+    list_filter = ('fecha', 'usuario')
     search_fields = ('id', 'proveedor__nombre')
     readonly_fields = ('total',)
 
