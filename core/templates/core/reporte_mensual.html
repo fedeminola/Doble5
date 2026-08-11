@@ -41,32 +41,47 @@
             </div>
             <hr>
             <div class="row mt-4">
-                {% if tipo_caja == 'CANCHA' %}
                 <div class="col-md-3 mb-3">
-                    <div class="p-4 border rounded bg-light text-center">
-                        <h6 class="text-uppercase small fw-bold">Cantidad Turnos</h6>
-                        <h2 class="text-info">{{ cantidad_turnos }}</h2>
-                    </div>
-                </div>
-                {% endif %}
-                <div class="col-md-3 mb-3">
-                    <div class="p-4 border rounded bg-light text-center">
-                        <h6 class="text-uppercase small fw-bold">Total Ingresos</h6>
-                        <h2 class="text-primary">${{ total_ingresos|human_decimal }}</h2>
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Ingresos Efectivo</h6>
+                        <h3 class="text-success">${{ ingresos_efectivo|human_decimal }}</h3>
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
-                    <div class="p-4 border rounded bg-light text-center">
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Ingresos Banco</h6>
+                        <h3 class="text-primary">${{ ingresos_banco|human_decimal }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
                         <h6 class="text-uppercase small fw-bold">Total Egresos</h6>
-                        <h2 class="text-danger">${{ total_egresos|human_decimal }}</h2>
+                        <h3 class="text-danger">${{ total_egresos|human_decimal }}</h3>
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
-                    <div class="p-4 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %} text-center">
+                    <div class="p-3 border rounded {% if ganancia >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
                         <h6 class="text-uppercase small fw-bold">Ganancia / Pérdida</h6>
                         <h2 class="{% if ganancia >= 0 %}text-success{% else %}text-danger{% endif %}">${{ ganancia|human_decimal }}</h2>
                     </div>
                 </div>
+            </div>
+            <div class="row mt-2">
+                 {% if tipo_caja == 'CANCHA' and specific_data.turnos_count %}
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Cantidad Turnos</h6>
+                        <h3 class="text-info">{{ specific_data.turnos_count }}</h3>
+                    </div>
+                </div>
+                {% elif tipo_caja == 'BUFET' and specific_data.ventas_count %}
+                 <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded bg-light">
+                        <h6 class="text-uppercase small fw-bold">Cantidad Ventas</h6>
+                        <h3 class="text-info">{{ specific_data.ventas_count }}</h3>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

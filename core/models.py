@@ -1,7 +1,7 @@
 from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.dispatch import receiver
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, m2m_changed, post_delete
 from decimal import Decimal
 
 class Sede(models.Model):
@@ -60,6 +60,7 @@ class Turno(models.Model):
             try:
                 caja = Caja.objects.get(sede=self.cancha.sede, fecha=self.fecha_hora_inicio.date(), abierta=True, tipo='CANCHA')
                 
+                # Sincronizar movimiento en efectivo
                 if self.monto_efectivo > 0:
                     MovimientoCaja.objects.update_or_create(
                         turno=self,
@@ -72,7 +73,10 @@ class Turno(models.Model):
                             'descripcion': f"Cobro de turno: {self}",
                         }
                     )
-                
+                else:
+                    MovimientoCaja.objects.filter(turno=self, metodo_pago='efectivo').delete()
+
+                # Sincronizar movimiento en banco/transferencia
                 if self.monto_transferencia > 0:
                     MovimientoCaja.objects.update_or_create(
                         turno=self,
@@ -85,8 +89,12 @@ class Turno(models.Model):
                             'descripcion': f"Cobro de turno (transferencia): {self}",
                         }
                     )
+                else:
+                    MovimientoCaja.objects.filter(turno=self, metodo_pago='banco').delete()
+
             except Caja.DoesNotExist:
-                pass
+                # Si no hay caja, nos aseguramos de que no haya movimientos para este turno
+                MovimientoCaja.objects.filter(turno=self).delete()
 
 class Caja(models.Model):
     TIPOS = [('CANCHA', 'Cancha'), ('BUFET', 'Bufet')]
@@ -102,9 +110,6 @@ class Caja(models.Model):
     diferencia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     abierta = models.BooleanField(default=True)
-
-    class Meta:
-        unique_together = ('fecha', 'sede', 'tipo')
 
     def __str__(self):
         return f"Caja {self.get_tipo_display()} de {self.sede.nombre} - {self.fecha}"
@@ -199,11 +204,18 @@ class ItemVenta(models.Model):
     precio_venta_momento = models.DecimalField(max_digits=10, decimal_places=2, help_text="Precio al momento de la venta")
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
             with transaction.atomic():
                 self.articulo.stock -= self.cantidad
                 self.articulo.save()
-        super().save(*args, **kwargs)
+
+@receiver(post_delete, sender=ItemVenta)
+def revert_stock_on_itemventa_delete(sender, instance, **kwargs):
+    with transaction.atomic():
+        instance.articulo.stock += instance.cantidad
+        instance.articulo.save()
 
 class Compra(models.Model):
     proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT)
@@ -224,11 +236,18 @@ class ItemCompra(models.Model):
     precio_costo_momento = models.DecimalField(max_digits=10, decimal_places=2, help_text="Costo al momento de la compra")
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
             with transaction.atomic():
                 self.articulo.stock += self.cantidad
                 self.articulo.save()
-        super().save(*args, **kwargs)
+
+@receiver(post_delete, sender=ItemCompra)
+def revert_stock_on_itemcompra_delete(sender, instance, **kwargs):
+    with transaction.atomic():
+        instance.articulo.stock -= instance.cantidad
+        instance.articulo.save()
 
 @receiver(m2m_changed, sender=Venta.articulos.through)
 def update_venta_total(sender, instance, action, **kwargs):

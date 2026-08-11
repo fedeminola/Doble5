@@ -30,9 +30,9 @@ class ConfiguracionAdmin(ModelAdmin):
         return False
 
 class TurnoAdmin(ModelAdmin):
-    list_display = ('cancha', 'fecha_hora_inicio', 'estado', 'cliente', 'precio_total')
-    list_filter = ('estado', 'cancha__sede', 'cancha')
-    search_fields = ('cliente__nombre', 'cliente__telefono')
+    list_display = ('id', 'cancha', 'fecha_hora_inicio', 'estado', 'cliente', 'precio_total')
+    list_filter = ('estado', 'cancha__sede', 'cancha', 'fecha_hora_inicio')
+    search_fields = ('id', 'cliente__nombre', 'cliente__telefono')
 
     def save_model(self, request, obj, form, change):
         obj.save(user=request.user)
@@ -72,7 +72,9 @@ class ItemVentaInline(admin.TabularInline):
 @admin.register(Venta)
 class VentaAdmin(ModelAdmin):
     inlines = [ItemVentaInline]
-    list_display = ('fecha', 'caja', 'usuario', 'total')
+    list_display = ('id', 'fecha', 'caja', 'usuario', 'total')
+    list_filter = ('fecha', 'caja__sede', 'usuario')
+    search_fields = ('id', 'cliente__nombre', 'cliente__apellido')
     readonly_fields = ('total',)
 
 class ItemCompraInline(admin.TabularInline):
@@ -82,7 +84,9 @@ class ItemCompraInline(admin.TabularInline):
 @admin.register(Compra)
 class CompraAdmin(ModelAdmin):
     inlines = [ItemCompraInline]
-    list_display = ('fecha', 'proveedor', 'usuario', 'total')
+    list_display = ('id', 'fecha', 'proveedor', 'usuario', 'total')
+    list_filter = ('fecha', 'proveedor__sede', 'usuario')
+    search_fields = ('id', 'proveedor__nombre')
     readonly_fields = ('total',)
 
 @admin.register(Articulo)
