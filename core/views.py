@@ -299,16 +299,18 @@ def turno_grid(request):
         modal_date_str = request.POST.get('date')
         
         creation_date = datetime.strptime(modal_date_str, '%Y-%m-%d').date() if modal_date_str else selected_date
+        
+        monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
+        monto_transferencia = Decimal(request.POST.get('monto_transferencia', '0'))
 
-        # Validar que haya una caja de CANCHA abierta para la fecha del turno
-        if not Caja.objects.filter(sede=selected_sede, fecha=creation_date, abierta=True, tipo='CANCHA').exists():
-            messages.error(request, f"No hay una caja de Cancha abierta para el día {creation_date.strftime('%d/%m/%Y')}. No se puede crear o modificar el turno.")
-            return redirect(f"{request.path}?date={selected_date_str}&sede={selected_sede.id if selected_sede else ''}&view={view_mode}")
+        # Validar que haya una caja de CANCHA abierta para la fecha del turno SOLO si hay un pago
+        if monto_efectivo > 0 or monto_transferencia > 0:
+            if not Caja.objects.filter(sede=selected_sede, fecha=creation_date, abierta=True, tipo='CANCHA').exists():
+                messages.error(request, f"No hay una caja de Cancha abierta para el día {creation_date.strftime('%d/%m/%Y')}. No se puede registrar un pago.")
+                return redirect(f"{request.path}?date={selected_date_str}&sede={selected_sede.id if selected_sede else ''}&view={view_mode}")
 
         config = Configuracion.objects.first()
         precio_total = config.precio_turno if config else Decimal('0')
-        monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0'))
-        monto_transferencia = Decimal(request.POST.get('monto_transferencia', '0'))
         nombre_cliente = request.POST.get('nombre_cliente')
         telefono = request.POST.get('telefono')
 
