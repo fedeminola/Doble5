@@ -19,6 +19,7 @@ from decimal import Decimal
 from datetime import datetime, time, timedelta
 from collections import defaultdict
 from .decorators import group_required, group_forbidden
+from django.urls import reverse
 
 
 # --- Vistas de Reportes y Exportación ---
@@ -417,7 +418,7 @@ def registrar_venta(request):
     caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.now().date()).first()
     if not caja_abierta:
         messages.error(request, "Para registrar una venta, la caja de BUFET debe estar abierta hoy.")
-        return redirect('abrir_caja', tipo='BUFET')
+        return redirect(f"{reverse('abrir_caja')}?tipo=BUFET")
 
     if request.method == 'POST':
         form = VentaForm(request.POST)
@@ -465,7 +466,7 @@ def registrar_compra(request):
     caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.now().date()).first()
     if not caja_abierta:
         messages.error(request, "Para registrar una compra, la caja de BUFET debe estar abierta hoy.")
-        return redirect('abrir_caja', tipo='BUFET')
+        return redirect(f"{reverse('abrir_caja')}?tipo=BUFET")
 
     if request.method == 'POST':
         form = CompraForm(request.POST)
@@ -507,7 +508,7 @@ def registrar_egreso(request):
     caja_abierta = Caja.objects.filter(sede=sede, tipo=tipo_caja, abierta=True, fecha=timezone.now().date()).first()
     if not caja_abierta:
         messages.error(request, f"No se pueden registrar egresos sin una caja de '{tipo_caja}' abierta hoy.")
-        return redirect('abrir_caja', tipo=tipo_caja)
+        return redirect(f"{reverse('abrir_caja')}?tipo={tipo_caja}")
 
     if request.method == 'POST':
         form = EgresoForm(request.POST)
