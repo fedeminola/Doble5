@@ -462,6 +462,11 @@ def registrar_compra(request):
         messages.error(request, "Tu usuario no está asociado a ninguna sede.")
         return redirect('admin:index')
 
+    caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.now().date()).first()
+    if not caja_abierta:
+        messages.error(request, "Para registrar una compra, la caja de BUFET debe estar abierta hoy.")
+        return redirect('abrir_caja', tipo='BUFET')
+
     if request.method == 'POST':
         form = CompraForm(request.POST)
         formset = ItemCompraFormSet(request.POST)
@@ -484,7 +489,7 @@ def registrar_compra(request):
         form = CompraForm(initial={'usuario': request.user})
         formset = ItemCompraFormSet(queryset=ItemCompra.objects.none())
 
-    context = {'form': form, 'formset': formset, 'sede': sede}
+    context = {'form': form, 'formset': formset, 'sede': sede, 'caja_abierta': caja_abierta}
     return render(request, 'core/registrar_compra.html', context)
 
 @login_required
