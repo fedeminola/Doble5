@@ -415,7 +415,7 @@ def registrar_venta(request):
         messages.error(request, "Tu usuario no está asociado a ninguna sede.")
         return redirect('admin:index')
 
-    caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.now().date()).first()
+    caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.localtime(timezone.now()).date()).first()
     if not caja_abierta:
         messages.error(request, "Para registrar una venta, la caja de BUFET debe estar abierta hoy.")
         return redirect(f"{reverse('abrir_caja')}?tipo=BUFET")
@@ -463,7 +463,7 @@ def registrar_compra(request):
         messages.error(request, "Tu usuario no está asociado a ninguna sede.")
         return redirect('admin:index')
 
-    caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.now().date()).first()
+    caja_abierta = Caja.objects.filter(sede=sede, tipo='BUFET', abierta=True, fecha=timezone.localtime(timezone.now()).date()).first()
     if not caja_abierta:
         messages.error(request, "Para registrar una compra, la caja de BUFET debe estar abierta hoy.")
         return redirect(f"{reverse('abrir_caja')}?tipo=BUFET")
@@ -505,7 +505,7 @@ def registrar_egreso(request):
         return redirect('admin:index')
 
     tipo_caja = request.GET.get('tipo', 'BUFET')
-    caja_abierta = Caja.objects.filter(sede=sede, tipo=tipo_caja, abierta=True, fecha=timezone.now().date()).first()
+    caja_abierta = Caja.objects.filter(sede=sede, tipo=tipo_caja, abierta=True, fecha=timezone.localtime(timezone.now()).date()).first()
     if not caja_abierta:
         messages.error(request, f"No se pueden registrar egresos sin una caja de '{tipo_caja}' abierta hoy.")
         return redirect(f"{reverse('abrir_caja')}?tipo={tipo_caja}")
