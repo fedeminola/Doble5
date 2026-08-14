@@ -600,19 +600,27 @@ def cerrar_caja(request):
         messages.warning(request, f"No hay una caja de tipo '{tipo}' abierta en la sede seleccionada.")
         return redirect(next_url)
 
+    # Cálculos para mostrar en el template
+    ingresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='ingreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    egresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='egreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    monto_final_teorico_efectivo = caja.monto_inicial + ingresos_efectivo - egresos_efectivo
+    
+    total_transferencias = MovimientoCaja.objects.filter(caja=caja, tipo='ingreso', metodo_pago='banco').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
     if request.method == 'POST':
         monto_final_real = request.POST.get('monto_final_real')
         if monto_final_real:
             caja.monto_final_real = Decimal(monto_final_real)
-            ingresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='ingreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-            egresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='egreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-            monto_final_teorico = caja.monto_inicial + ingresos_efectivo - egresos_efectivo
-            caja.monto_final_teorico = monto_final_teorico
-            diferencia = caja.monto_final_real - monto_final_teorico
+            
+            # Guardar el valor teórico calculado en el momento del cierre
+            caja.monto_final_teorico = monto_final_teorico_efectivo
+            
+            diferencia = caja.monto_final_real - monto_final_teorico_efectivo
             caja.diferencia = diferencia
             caja.usuario_cierre = request.user
             caja.abierta = False
             caja.save()
+
             if diferencia != 0:
                 admins = User.objects.filter(groups__name='Administrador')
                 for admin in admins:
@@ -620,11 +628,13 @@ def cerrar_caja(request):
                         usuario=admin,
                         mensaje=f"Se registró una diferencia de ${diferencia} en la caja del día {caja.fecha} en la sede {caja.sede.nombre}."
                     )
-            messages.success(request, f"Caja de tipo '{tipo}' cerrada correctamente.")
+            messages.success(f"Caja de tipo '{tipo}' cerrada correctamente.")
             return redirect(request.POST.get('next', 'turno_grid'))
 
-    ingresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='ingreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    egresos_efectivo = MovimientoCaja.objects.filter(caja=caja, tipo='egreso', metodo_pago='efectivo').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    monto_final_teorico = caja.monto_inicial + ingresos_efectivo - egresos_efectivo
-    context = {'caja': caja, 'monto_final_teorico': monto_final_teorico, 'next_url': next_url}
+    context = {
+        'caja': caja, 
+        'monto_final_teorico_efectivo': monto_final_teorico_efectivo, 
+        'total_transferencias': total_transferencias,
+        'next_url': next_url
+    }
     return render(request, 'core/cerrar_caja.html', context)
