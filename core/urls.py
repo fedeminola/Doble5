@@ -9,6 +9,7 @@ urlpatterns = [
     path('reportes/semanal/', views.reporte_semanal, name='reporte_semanal'),
     path('export/reporte_diario_csv/', views.export_reporte_diario_csv, name='export_reporte_diario_csv'),
     path('export/reporte_mensual_csv/', views.export_reporte_mensual_csv, name='export_reporte_mensual_csv'),
+    path('export/reporte_semanal_csv/', views.export_reporte_semanal_csv, name='export_reporte_semanal_csv'),
 
     # Turnos
     path('turno-grid/', views.turno_grid, name='turno_grid'),

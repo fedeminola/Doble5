@@ -24,6 +24,33 @@ from django.urls import reverse
 
 # --- Vistas de Reportes y Exportación ---
 
+MOVIMIENTOS_HEADERS = ('ID', 'Usuario', 'Tipo', 'Método Pago', 'Monto', 'Descripción', 'Turno/Venta ID')
+
+
+def _movimientos_dataset(movimientos, tablib):
+    """Construye la hoja de movimientos para los reportes Excel."""
+    movimientos_sheet = tablib.Dataset(headers=MOVIMIENTOS_HEADERS, title='Movimientos')
+    for mov in movimientos:
+        ref_id = ''
+        if mov.turno:
+            ref_id = f"Turno {mov.turno.id}"
+        elif mov.venta:
+            ref_id = f"Venta {mov.venta.id}"
+        elif mov.compra:
+            ref_id = f"Compra {mov.compra.id}"
+        movimientos_sheet.append(
+            (
+                mov.id,
+                mov.usuario.username,
+                mov.get_tipo_display(),
+                mov.get_metodo_pago_display(),
+                mov.monto,
+                mov.descripcion,
+                ref_id,
+            )
+        )
+    return movimientos_sheet
+
 @login_required
 @group_required('Administrador')
 def export_reporte_diario_csv(request):
@@ -58,22 +85,10 @@ def export_reporte_diario_csv(request):
     dataset.append((caja.fecha, caja.sede.nombre, caja.get_tipo_display(), caja.monto_inicial, ingresos_efectivo, ingresos_banco, total_ingresos, total_egresos, balance_final))
 
     if export_format == 'xls':
-        # Hoja de Movimientos
-        headers_movimientos = ('ID', 'Usuario', 'Tipo', 'Método Pago', 'Monto', 'Descripción', 'Turno/Venta ID')
-        movimientos_sheet = tablib.Dataset(headers=headers_movimientos, title='Movimientos')
-        movimientos = MovimientoCaja.objects.filter(caja=caja).order_by('id')
-        for mov in movimientos:
-            ref_id = ''
-            if mov.turno:
-                ref_id = f"Turno {mov.turno.id}"
-            elif mov.venta:
-                ref_id = f"Venta {mov.venta.id}"
-            elif mov.compra:
-                ref_id = f"Compra {mov.compra.id}"
-            movimientos_sheet.append((mov.id, mov.usuario.username, mov.get_tipo_display(), mov.get_metodo_pago_display(), mov.monto, mov.descripcion, ref_id))
-
-        # Crear un libro con ambas hojas
-        book = tablib.Databook([dataset, movimientos_sheet])
+        movimientos = MovimientoCaja.objects.filter(caja=caja).select_related(
+            'usuario', 'turno', 'venta', 'compra'
+        ).order_by('id')
+        book = tablib.Databook([dataset, _movimientos_dataset(movimientos, tablib)])
         response = HttpResponse(book.export('xls'), content_type='application/vnd.ms-excel')
         response['Content-Disposition'] = f'attachment; filename="reporte_diario_{selected_date_str}_{tipo_caja}.xls"'
     else: # CSV
@@ -105,12 +120,78 @@ def export_reporte_mensual_csv(request):
 
     export_format = request.GET.get('format', 'csv')
     if export_format == 'xls':
-        response = HttpResponse(data.export('xls'), content_type='application/vnd.ms-excel')
+        movimientos = MovimientoCaja.objects.filter(
+            caja__fecha__month=selected_month,
+            caja__fecha__year=selected_year,
+            caja__tipo=tipo_caja,
+        ).select_related('usuario', 'turno', 'venta', 'compra').order_by('id')
+        book = tablib.Databook([data, _movimientos_dataset(movimientos, tablib)])
+        response = HttpResponse(book.export('xls'), content_type='application/vnd.ms-excel')
         response['Content-Disposition'] = f'attachment; filename="reporte_mensual_{selected_year}_{selected_month}_{tipo_caja}.xls"'
     else:
         response = HttpResponse(data.export('csv'), content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="reporte_mensual_{selected_year}_{selected_month}_{tipo_caja}.csv"'
 
+    return response
+
+
+@login_required
+@group_required('Administrador')
+def export_reporte_semanal_csv(request):
+    import tablib
+
+    selected_date_str = request.GET.get(
+        'date', timezone.localtime(timezone.now()).strftime('%Y-%m-%d')
+    )
+    tipo_caja = request.GET.get('tipo_caja', 'CANCHA')
+    export_format = request.GET.get('format', 'csv')
+
+    try:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        selected_date = timezone.localtime(timezone.now()).date()
+        selected_date_str = selected_date.strftime('%Y-%m-%d')
+
+    start_week = selected_date - timedelta(days=selected_date.weekday())
+    end_week = start_week + timedelta(days=6)
+    base_query = MovimientoCaja.objects.filter(
+        caja__fecha__range=[start_week, end_week], caja__tipo=tipo_caja
+    )
+
+    ingresos_efectivo = base_query.filter(
+        tipo='ingreso', metodo_pago='efectivo'
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    ingresos_banco = base_query.filter(
+        tipo='ingreso', metodo_pago='banco'
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingresos = ingresos_efectivo + ingresos_banco
+    total_egresos = base_query.filter(tipo='egreso').aggregate(
+        total=Sum('monto')
+    )['total'] or Decimal('0.00')
+    ganancia = total_ingresos - total_egresos
+
+    headers = (
+        'Desde', 'Hasta', 'Tipo Caja', 'Ingresos Efectivo', 'Ingresos Banco',
+        'Total Ingresos', 'Total Egresos', 'Ganancia/Pérdida'
+    )
+    data = tablib.Dataset(headers=headers, title='Resumen')
+    data.append((start_week, end_week, tipo_caja, ingresos_efectivo, ingresos_banco,
+                 total_ingresos, total_egresos, ganancia))
+
+    if export_format == 'xls':
+        movimientos = base_query.select_related(
+            'usuario', 'turno', 'venta', 'compra'
+        ).order_by('id')
+        book = tablib.Databook([data, _movimientos_dataset(movimientos, tablib)])
+        response = HttpResponse(book.export('xls'), content_type='application/vnd.ms-excel')
+        response['Content-Disposition'] = (
+            f'attachment; filename="reporte_semanal_{start_week}_{end_week}_{tipo_caja}.xls"'
+        )
+    else:
+        response = HttpResponse(data.export('csv'), content_type='text/csv')
+        response['Content-Disposition'] = (
+            f'attachment; filename="reporte_semanal_{start_week}_{end_week}_{tipo_caja}.csv"'
+        )
     return response
 
 
